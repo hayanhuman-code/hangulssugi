@@ -275,7 +275,7 @@ See `number-data.js`. Every glyph is drawn on a **200×200 square cell** — the
 
 - `strokes: { d: string, start: [x,y] }[]` — one entry per pen-lift stroke, in the order a child should write them. Arrow direction is derived from the path's tangent at render time (`addArrowsAlongPath`), so no stored `arrow` field is needed; `xOffset` was likewise never read and has been removed.
 - `strokeWidth: 30` — the pen thickness the geometry was designed around; renderers scale their guides off this rather than hard-coding a number.
-- `viewBox` — `0 0 200 200` for single digits. Two-digit numbers are **composed at load time**, never hand-drawn a second time, so their viewBox width is computed (e.g. `0 0 248 200` for 10).
+- `viewBox` — `0 0 200 200` for single digits, which `compose()` also **centres horizontally** inside the cell (the raw glyph coordinates are not symmetric — 1 is only 74 wide and sat 41 left / 85 right before centring). Two-digit numbers are **composed at load time**, never hand-drawn a second time, so their viewBox width is computed (e.g. `0 0 248 200` for 10).
 - The SVG viewBox is preserved via `preserveAspectRatio="xMidYMid meet"`.
 
 #### Stroke order
@@ -353,6 +353,46 @@ Bundled in this handoff:
 - `app.js` — all state, screen rendering, drawing canvas, SVG guide generation, stroke-order animation, sound synthesis, progress persistence.
 - `number-data.js` — the 21 number definitions (stroke paths, colors, Korean/English names, count emojis).
 
+## Running It
+
+The prototype is a **static site with no build step** — three files, no dependencies, works offline.
+
+### Locally
+```bash
+git clone https://github.com/hayanhuman-code/hangulssugi.git
+cd hangulssugi
+python3 -m http.server 8000      # or: npx serve .
+# open http://localhost:8000
+```
+Opening `index.html` straight off the filesystem also works. A server is only nicer
+because `localStorage` is then keyed to an origin rather than to the file path.
+
+### On the web — GitHub Pages
+`.github/workflows/pages.yml` publishes the repository root on every push to the
+default branch. **It needs one manual switch first:**
+
+> Settings → Pages → *Build and deployment* → **Source: GitHub Actions**
+
+After that the app is live at `https://hayanhuman-code.github.io/hangulssugi/`.
+Re-runs are automatic on push; *Actions → Deploy to GitHub Pages → Run workflow*
+triggers one by hand. The repository is public, so Pages is free.
+
+### As one file
+```bash
+node tools/bundle.mjs        # -> dist/index.html
+```
+Inlines both scripts into a single self-contained HTML file for cases where a repository
+or a web server is inconvenient — sending the app to someone directly, dropping it on a
+tablet, attaching it to a wiki page, or publishing it as a Claude Artifact. `dist/` is
+git-ignored; regenerate it rather than committing it.
+
+### Device notes
+- Designed for **landscape tablet**; it collapses to a stacked layout at aspect ratio ≤ 1.
+- On iPad, *Share → Add to Home Screen* gives a full-screen, chrome-free launcher.
+- Sound needs one tap anywhere first — iOS Safari only unlocks audio inside a user gesture.
+- Speech uses the Web Speech API and needs a Korean voice installed; without one the app
+  stays silent but fully usable.
+
 ## Recommended Implementation Notes
 
 1. **Framework choice for a real app**: React Native (with `react-native-svg` for stroke paths and `react-native-skia` or a `PanResponder`+`<Canvas>` for finger drawing) or SwiftUI (with `Path` + `DragGesture` on a `Canvas`). Flutter also fits (`CustomPaint` + `GestureDetector` + `path_drawing` for parsing the SVG `d` strings).
@@ -392,3 +432,23 @@ Bundled in this handoff:
 - **Text-to-speech added** (`ko-KR`, rate 0.85, pitch 1.2) on the number, both names, the object caption, and a 🔊 button in every action bar.
 - **`prefers-reduced-motion` honoured** and aria-labels/focus rings added throughout. The stroke-order animation is deliberately exempt — it teaches, it doesn't decorate.
 - In step 1 the canvas reserves 68px at the bottom so the floating "다시 보기" button cannot overlap the glyph (visible on two-digit numbers).
+
+### Stage C follow-up: coincident stroke markers, glyph centring
+- **Stroke 1's start marker was invisible on 4, 5, 14 and 15.** Both strokes of 4 and of 5
+  begin at *exactly* the same coordinate (measured distance 0.0), so the marker drawn
+  second covered the first completely and the child was shown a "2" with no "1" anywhere
+  on screen. Shrinking the marker to r=11 narrowed the overlap but could not remove it.
+  `placeMarker()` now walks a colliding marker forward along its own path until it clears
+  the previous one — it stays on the correct stroke, so the meaning is unchanged.
+- **The stroke-order demo emitted each stroke as a path-plus-marker bundle**, so a later
+  stroke's opaque path painted over an earlier stroke's number. Paths are now laid down in
+  one pass and markers in a second, matching what the trace guide already did.
+- **Single digits are centred in their cell.** `compose()` only balanced multi-digit
+  numbers; 1 (74 wide) sat 41 left / 85 right, noticeably shoved to one side. Single digits
+  now get the same optical centring, so every glyph is symmetric in its cell.
+
+### Known gaps
+- Screen-reader coverage is partial: home cards and the main controls have labels, but the
+  canvas guide and the drawing surface are not described.
+- The faded trace guide's effective contrast against the canvas background is below 3:1 by
+  design; the solid Step 1 stroke clears 3:1 for every accent.

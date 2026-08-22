@@ -169,9 +169,18 @@
   // 일정해지도록 배치한다(1처럼 좁은 글자가 혼자 떨어져 보이지 않게).
   function compose(digits) {
     // 한 자리는 200x200 정사각 셀을 그대로 쓴다 (자모·음절과 같은 스키마).
+    // 원형 좌표는 셀 안에서 좌우 대칭이 아니다 — 특히 1은 폭이 74뿐이라
+    // 왼쪽 41 / 오른쪽 85로 눈에 띄게 치우친다. 두 자리 숫자는 이미 대칭으로
+    // 배치되므로, 한 자리도 같은 기준으로 가운데에 맞춘다.
     if (digits.length === 1) {
+      const g = GLYPH[digits[0]];
+      const [lo, hi] = inkX(g, SW);
+      const dx = round((CELL - (hi - lo)) / 2 - lo);
       return {
-        strokes: GLYPH[digits[0]].map(s => ({ d: s.d, start: s.start.slice() })),
+        strokes: g.map(s => ({
+          d: translatePath(s.d, dx, 0),
+          start: [round(s.start[0] + dx), s.start[1]]
+        })),
         viewBox: '0 0 ' + CELL + ' ' + CELL
       };
     }

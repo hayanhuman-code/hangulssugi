@@ -97,6 +97,25 @@ function svgEl(tag, attrs) {
   return el;
 }
 
+// ---------- 획 시작 표식 위치 ----------
+// 4와 5는 두 획이 완전히 같은 점에서 시작한다(거리 0). 좌표 그대로 찍으면 나중에 그린
+// 2번 표식이 1번을 100% 덮어, 아이 화면에는 "2"만 남고 1번 획의 시작점이 사라진다.
+// 겹치는 표식은 자기 획을 따라 앞으로 밀어 둘 다 보이게 한다 — 여전히 같은 획 위이므로
+// 어느 획의 시작인지는 그대로 읽힌다.
+function placeMarker(pathEl, start, placed, minSep) {
+  const clash = q => placed.some(m => Math.hypot(m.x - q.x, m.y - q.y) < minSep);
+  let pt = { x: start[0], y: start[1] };
+  if (clash(pt)) {
+    const len = pathEl.getTotalLength();
+    for (let d = minSep; d <= len; d += 4) {
+      const q = pathEl.getPointAtLength(d);
+      if (!clash(q)) { pt = { x: q.x, y: q.y }; break; }
+    }
+  }
+  placed.push(pt);
+  return pt;
+}
+
 // ---------- 오디오 (간단한 신디사이저) ----------
 function initAudio() {
   if (STATE.audioCtx) return;
@@ -376,13 +395,17 @@ function playStrokeDemo(auto) {
   guide.classList.add('dimmed');    // 가이드는 '흐려질' 뿐, 파괴되지 않는다
   if (btn) btn.disabled = true;
 
+  // 획을 먼저 전부 깔고 표식을 나중에 올린다. 한 획씩 "획+표식" 묶음으로 그리면
+  // 나중 획이 앞 획의 번호를 덮는다 — 4·5처럼 획이 겹치는 숫자에서 실제로 그랬다.
   let cumulativeDelay = 0;
-  data.strokes.forEach((stroke, i) => {
+  const paths = [];
+  data.strokes.forEach(stroke => {
     const p = svgEl('path', {
       d: stroke.d, class: 'stroke-outline',
       stroke: data.color, 'stroke-width': strokeW(data)
     });
     overlay.appendChild(p);
+    paths.push(p);
     const len = p.getTotalLength();
     const dur = Math.max(1.2, len / 200);
     p.style.setProperty('--len', len);
@@ -390,22 +413,25 @@ function playStrokeDemo(auto) {
     p.style.setProperty('--dur', dur + 's');
     p.classList.add('stroke-animate');
 
-    // 시작점 표식
-    const [sx, sy] = stroke.start;
+    later(() => sfxDraw(), cumulativeDelay * 1000);
+    cumulativeDelay += dur + 0.3;
+  });
+
+  // 시작점 표식 — 같은 좌표에서 시작하는 획끼리 겹치지 않게 배치
+  const marks = [];
+  data.strokes.forEach((stroke, i) => {
+    const m = placeMarker(paths[i], stroke.start, marks, 32);
     overlay.appendChild(svgEl('circle', {
-      cx: sx, cy: sy, r: 14, fill: 'white',
+      cx: m.x, cy: m.y, r: 14, fill: 'white',
       stroke: data.color, 'stroke-width': 5
     }));
     const label = svgEl('text', {
-      x: sx, y: sy + 6, 'text-anchor': 'middle',
+      x: m.x, y: m.y + 6, 'text-anchor': 'middle',
       'font-size': 18, 'font-weight': 'bold',
       fill: data.color, 'font-family': 'Jua, sans-serif'
     });
     label.textContent = (i + 1);
     overlay.appendChild(label);
-
-    later(() => sfxDraw(), cumulativeDelay * 1000);
-    cumulativeDelay += dur + 0.3;
   });
 
   later(() => {
@@ -458,15 +484,19 @@ function renderStepTrace(svg, data) {
     probe.remove();
   });
 
-  // ④ 시작점 + 획 번호 (맨 위)
+  // ④ 시작점 + 획 번호 (맨 위) — 같은 좌표에서 시작하는 획끼리 겹치지 않게 배치
+  const marks = [];
   data.strokes.forEach((s, i) => {
-    const [sx, sy] = s.start;
+    const probe = svgEl('path', { d: s.d, fill: 'none', stroke: 'none' });
+    svg.appendChild(probe);
+    const m = placeMarker(probe, s.start, marks, 26);
+    probe.remove();
     svg.appendChild(svgEl('circle', {
-      cx: sx, cy: sy, r: 11, fill: data.color,
+      cx: m.x, cy: m.y, r: 11, fill: data.color,
       stroke: 'white', 'stroke-width': 2, class: 'start-dot'
     }));
     const label = svgEl('text', {
-      x: sx, y: sy + 5, 'text-anchor': 'middle',
+      x: m.x, y: m.y + 5, 'text-anchor': 'middle',
       'font-size': 14, 'font-weight': 'bold', fill: 'white',
       'font-family': 'Jua, sans-serif'
     });
