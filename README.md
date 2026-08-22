@@ -228,35 +228,52 @@ No server / no fetching needed. The app is fully offline-capable.
 | Info-objects background | `#FFF9DC` |
 
 ### Per-Number Accent Colors & Emojis
+Accent colors are the **stroke** colors and all clear 3:1 contrast against the canvas guide background (`#F0F4FF`); the pastel `bgColor` is unchanged and is only used for the home card gradient.
 | # | Accent | Pastel bg | Korean | English | Object emoji | Object label |
 |---|---|---|---|---|---|---|
-| 0 | `#FF6B9D` | `#FFE0EC` | 영 | zero | 🥚 | 알 (egg) |
-| 1 | `#FF6B6B` | `#FFE0E0` | 일 | one | 🌸 | 꽃 (flower) |
-| 2 | `#FFA94D` | `#FFECD9` | 이 | two | 🦆 | 오리 (duck) |
-| 3 | `#FFD93D` | `#FFF6D0` | 삼 | three | 🍎 | 사과 (apple) |
-| 4 | `#6BCF7F` | `#D4F5DA` | 사 | four | 🐱 | 고양이 (cat) |
-| 5 | `#4DABF7` | `#D4E9FA` | 오 | five | ⭐ | 별 (star) |
-| 6 | `#9775FA` | `#E5DBFE` | 육 | six | 🐝 | 벌 (bee) |
-| 7 | `#FF8CC8` | `#FFDCEE` | 칠 | seven | 🌈 | 무지개 (rainbow) |
-| 8 | `#63E6BE` | `#CFF6E5` | 팔 | eight | 🐙 | 문어 (octopus) |
-| 9 | `#F783AC` | `#FDDEEB` | 구 | nine | 🎈 | 풍선 (balloon) |
-| 10 | `#FF6B9D` | `#FFE0EC` | 십 | ten | 🍭 | 사탕 (candy) |
-| 11 | `#FF6B6B` | `#FFE0E0` | 십일 | eleven | 🐞 | 무당벌레 (ladybug) |
-| 12 | `#FFA94D` | `#FFECD9` | 십이 | twelve | 🍓 | 딸기 (strawberry) |
-| 13 | `#FFD93D` | `#FFF6D0` | 십삼 | thirteen | 🐟 | 물고기 (fish) |
-| 14 | `#6BCF7F` | `#D4F5DA` | 십사 | fourteen | 🍀 | 클로버 (clover) |
-| 15 | `#4DABF7` | `#D4E9FA` | 십오 | fifteen | 🐢 | 거북이 (turtle) |
-| 16 | `#9775FA` | `#E5DBFE` | 십육 | sixteen | 🍇 | 포도 (grape) |
-| 17 | `#FF8CC8` | `#FFDCEE` | 십칠 | seventeen | ⭐ | 별 (star) |
-| 18 | `#63E6BE` | `#CFF6E5` | 십팔 | eighteen | 🍪 | 쿠키 (cookie) |
-| 19 | `#F783AC` | `#FDDEEB` | 십구 | nineteen | 🌟 | 반짝별 (twinkle star) |
-| 20 | `#FFA94D` | `#FFECD9` | 이십 | twenty | 🎉 | 파티 (party) |
+| 0 | `#E8467E` | `#FFE0EC` | 영 | zero | 🥚 | 알 (egg) |
+| 1 | `#E04343` | `#FFE0E0` | 일 | one | 🌸 | 꽃 (flower) |
+| 2 | `#D27306` | `#FFECD9` | 이 | two | 🦆 | 오리 (duck) |
+| 3 | `#C07E00` | `#FFF6D0` | 삼 | three | 🍎 | 사과 (apple) |
+| 4 | `#3D9E52` | `#D4F5DA` | 사 | four | 🐱 | 고양이 (cat) |
+| 5 | `#1B7FD4` | `#D4E9FA` | 오 | five | ⭐ | 별 (star) |
+| 6 | `#6D4AE0` | `#E5DBFE` | 육 | six | 🐝 | 벌 (bee) |
+| 7 | `#DB4C9A` | `#FFDCEE` | 칠 | seven | 🌈 | 무지개 (rainbow) |
+| 8 | `#119E7A` | `#CFF6E5` | 팔 | eight | 🐙 | 문어 (octopus) |
+| 9 | `#D14A7D` | `#FDDEEB` | 구 | nine | 🎈 | 풍선 (balloon) |
+| 10 | `#E8467E` | `#FFE0EC` | 십 | ten | 🍭 | 사탕 (candy) |
+| 11 | `#E04343` | `#FFE0E0` | 십일 | eleven | 🐞 | 무당벌레 (ladybug) |
+| 12 | `#D27306` | `#FFECD9` | 십이 | twelve | 🍓 | 딸기 (strawberry) |
+| 13 | `#C07E00` | `#FFF6D0` | 십삼 | thirteen | 🐟 | 물고기 (fish) |
+| 14 | `#3D9E52` | `#D4F5DA` | 십사 | fourteen | 🍀 | 클로버 (clover) |
+| 15 | `#1B7FD4` | `#D4E9FA` | 십오 | fifteen | 🐢 | 거북이 (turtle) |
+| 16 | `#6D4AE0` | `#E5DBFE` | 십육 | sixteen | 🍇 | 포도 (grape) |
+| 17 | `#DB4C9A` | `#FFDCEE` | 십칠 | seventeen | ⭐ | 별 (star) |
+| 18 | `#119E7A` | `#CFF6E5` | 십팔 | eighteen | 🍪 | 쿠키 (cookie) |
+| 19 | `#D14A7D` | `#FDDEEB` | 십구 | nineteen | 🌟 | 반짝별 (twinkle star) |
+| 20 | `#E8467E` | `#FFE0EC` | 이십 | twenty | 🎉 | 파티 (party) |
 
 ### Number Stroke Paths (SVG)
-See `number-data.js` for the full geometry. Each number has:
+See `number-data.js`. Every glyph is drawn on a **200×200 square cell** — the same coordinate system the letters and syllables use.
+
 - `strokes: { d: string, start: [x,y] }[]` — one entry per pen-lift stroke, in the order a child should write them. Arrow direction is derived from the path's tangent at render time (`addArrowsAlongPath`), so no stored `arrow` field is needed; `xOffset` was likewise never read and has been removed.
-- `viewBox` (default `0 0 200 300`; two-digit numbers use wider viewBoxes like `0 0 240 300`).
+- `strokeWidth: 30` — the pen thickness the geometry was designed around; renderers scale their guides off this rather than hard-coding a number.
+- `viewBox` — `0 0 200 200` for single digits. Two-digit numbers are **composed at load time**, never hand-drawn a second time, so their viewBox width is computed (e.g. `0 0 248 200` for 10).
 - The SVG viewBox is preserved via `preserveAspectRatio="xMidYMid meet"`.
+
+#### Stroke order
+| Digit | Strokes | Rule |
+|---|---|---|
+| 0 | 1 | Start at 12 o'clock, **counter-clockwise** (matches ㅇ). |
+| 1 | 1 | Hook up-left → down. **No base serif** — the horizontal foot is gone, including inside 10–19. |
+| 2, 3, 6, 7 | 1 | Conventional single stroke. |
+| 4 | 2 | ① diagonal down-left then across ② vertical, **starting at the very top** (not from the crossbar). |
+| 5 | 2 | ① down the left, then the belly swinging right ② the top bar, left→right. |
+| 8 | 1 | Start **top-right**, S-curve down to the left through the waist, round the bottom, back up and close at the start. |
+| 9 | 1 | Start top-right, **counter-clockwise until the circle fully closes**, then straight down from that same point (no stray leg — the old path looked like a ρ). |
+
+#### Two-digit composition
+`compose()` places each digit's cell side by side. Spacing is not measured from bounding boxes — a bbox puts 7 and 9 too far from a preceding 1, because their lower-left corner is empty. Instead each glyph is scan-converted into 5px-tall horizontal bands recording the leftmost and rightmost ink (the pen is treated as a round nib of `strokeWidth` diameter), and the next digit is pushed just far enough that the **closest** pair of bands sits `GAP` apart. That is ordinary optical kerning, and it is the same primitive the syllable composer will need.
 
 If your target codebase can't consume raw SVG paths, either (a) render them via SVG components (React Native SVG, SwiftUI Path with a small path-parser, Flutter's `path_drawing` package), or (b) rasterize them once at a large size and ship as PNGs — but you'll lose the "draw stroke over time" animation without the vector path.
 
@@ -341,3 +358,10 @@ Bundled in this handoff:
 - **Touch + mouse handlers replaced by Pointer Events** with `setPointerCapture`, ending double-registration and mid-stroke drop-outs.
 - **iOS Safari silence fixed** — `audioCtx.resume()` on the first (and every subsequent) user gesture.
 - **Dead schema fields removed** — `arrow` and `xOffset` were never read by any code path.
+
+### Stage B: number stroke data rewritten
+- **All glyphs redrawn on a 200×200 square cell**, matching the coordinate system the letters and syllables will use, with `strokeWidth` carried in the data instead of hard-coded per render path.
+- **Stroke order corrected** per the table above — most importantly 8 (previously started at the centre crossing point, which is simply wrong), 9 (the circle never closed and the leg stuck out sideways, reading as ρ), 4 (the second stroke began mid-height instead of at the top), 0 (now counter-clockwise from 12 o'clock, consistent with ㅇ), 1 (hook + vertical, one stroke, no base serif).
+- **Two-digit numbers are composed from the single-digit originals**, not redrawn. 10–19 inherit the serif-less 1 for free, and stroke counts drop accordingly (10 is 2 strokes, not 3; 11 is 2, not 4).
+- **Optical kerning** via per-band ink profiles, so 17 and 19 no longer look spaced apart.
+- **Stroke palette darkened one step.** Every accent now clears 3:1 against the canvas guide background; the worst offender, `#FFD93D` on 3 and 13, measured 1.25:1 and is now `#C07E00` at 3.07:1. Card pastels are untouched.

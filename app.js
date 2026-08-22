@@ -186,7 +186,7 @@ function renderStep() {
   const demoBtn = document.getElementById('demoBtn');
   const actionBar = document.getElementById('actionBar');
 
-  const viewBox = data.viewBox || '0 0 200 300';
+  const viewBox = data.viewBox || '0 0 200 200';
   svg.setAttribute('viewBox', viewBox);
   document.getElementById('demoSvg').setAttribute('viewBox', viewBox);
 
@@ -240,17 +240,16 @@ function prevStep() {
 }
 
 // ---------- 1단계: 보기 (정적 숫자 + 획순 데모) ----------
+function strokeW(data) { return data.strokeWidth || 30; }
+
 function renderStepView(svg, data) {
   svg.innerHTML = '';
   // 큰 채워진 숫자
   data.strokes.forEach(s => {
-    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    p.setAttribute('d', s.d);
-    p.setAttribute('class', 'stroke-outline');
-    p.setAttribute('stroke', data.color);
-    p.setAttribute('stroke-width', '32');
-    p.setAttribute('opacity', '0.9');
-    svg.appendChild(p);
+    svg.appendChild(svgEl('path', {
+      d: s.d, class: 'stroke-outline',
+      stroke: data.color, 'stroke-width': strokeW(data), opacity: 0.9
+    }));
   });
 }
 
@@ -278,7 +277,7 @@ function playStrokeDemo(auto) {
   data.strokes.forEach((stroke, i) => {
     const p = svgEl('path', {
       d: stroke.d, class: 'stroke-outline',
-      stroke: data.color, 'stroke-width': 32
+      stroke: data.color, 'stroke-width': strokeW(data)
     });
     overlay.appendChild(p);
     const len = p.getTotalLength();
@@ -333,7 +332,7 @@ function renderStepTrace(svg, data) {
     p.setAttribute('d', s.d);
     p.setAttribute('class', 'stroke-outline stroke-dashed');
     p.setAttribute('stroke', data.color);
-    p.setAttribute('stroke-width', '24');
+    p.setAttribute('stroke-width', strokeW(data) * 0.8);
     svg.appendChild(p);
 
     // 시작점 (● 애니메이션)
@@ -381,12 +380,10 @@ function addArrowsAlongPath(svg, pathEl, color) {
 function renderStepSolo(svg, data) {
   svg.innerHTML = '';
   data.strokes.forEach(s => {
-    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    p.setAttribute('d', s.d);
-    p.setAttribute('class', 'stroke-outline stroke-faint');
-    p.setAttribute('stroke', data.color);
-    p.setAttribute('stroke-width', '24');
-    svg.appendChild(p);
+    svg.appendChild(svgEl('path', {
+      d: s.d, class: 'stroke-outline stroke-faint',
+      stroke: data.color, 'stroke-width': strokeW(data) * 0.8
+    }));
   });
 }
 
