@@ -273,7 +273,7 @@
     el.gMarks.appendChild(node('circle', { cx: start.x, cy: start.y, r: BADGE_R * k, fill: deep }));
     var t = node('text', {
       x: start.x, y: start.y + BADGE_FS * k * 0.35, 'text-anchor': 'middle',
-      'font-family': 'Jua, sans-serif', 'font-size': BADGE_FS * k, fill: '#FFFFFF'
+      'font-family': "'Gothic A1', sans-serif", 'font-weight': '800', 'font-size': BADGE_FS * k, fill: '#FFFFFF'
     });
     t.textContent = String(i + 1);
     el.gMarks.appendChild(t);
