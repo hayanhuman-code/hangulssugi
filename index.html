@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>숫자 쓰기 연습 🎈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Gaegu:wght@700&family=Jua&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Jua', 'Gaegu', 'Fredoka', sans-serif;
+    overflow: hidden;
+    height: 100vh; width: 100vw;
+    touch-action: none;
+    -webkit-user-select: none;
+    background: linear-gradient(135deg, #FFF9DC 0%, #FFE5F1 50%, #E0F4FF 100%);
+    color: #3d3d5c;
+  }
+  .app { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+
+  /* ---------- 홈 화면 ---------- */
+  .home {
+    height: 100%; display: flex; flex-direction: column; padding: 24px 32px;
+    background:
+      radial-gradient(circle at 15% 20%, #FFE0EC 0%, transparent 40%),
+      radial-gradient(circle at 85% 10%, #D4E9FA 0%, transparent 40%),
+      radial-gradient(circle at 90% 90%, #FFF6D0 0%, transparent 40%),
+      radial-gradient(circle at 10% 85%, #D4F5DA 0%, transparent 40%),
+      linear-gradient(135deg, #FFFAF0 0%, #FFF5FA 100%);
+  }
+  .home-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .home-title {
+    font-size: 44px; font-weight: 700;
+    background: linear-gradient(90deg, #FF6B9D, #FFA94D, #FFD93D, #6BCF7F, #4DABF7, #9775FA);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin: 0;
+    letter-spacing: -1px;
+  }
+  .home-title::after {
+    content: '✏️'; font-size: 36px; margin-left: 8px;
+    -webkit-text-fill-color: initial;
+  }
+  .home-subtitle {
+    background: white; padding: 12px 24px; border-radius: 999px;
+    font-size: 22px; color: #6b6b8a;
+    box-shadow: 0 4px 0 rgba(200, 180, 220, 0.3);
+  }
+  .stars-collected {
+    background: linear-gradient(135deg, #FFD93D, #FFA94D); color: white;
+    padding: 12px 20px; border-radius: 999px;
+    font-size: 22px; font-weight: 700;
+    box-shadow: 0 4px 0 #E89600, 0 6px 12px rgba(255, 169, 77, 0.4);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .number-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px;
+    flex: 1; align-content: center;
+  }
+  .number-card {
+    background: white; border-radius: 24px; padding: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.08), 0 8px 20px rgba(0,0,0,0.06);
+    transition: transform 0.15s, box-shadow 0.15s;
+    aspect-ratio: 1;
+    border: 4px solid transparent;
+  }
+  .number-card:active {
+    transform: translateY(4px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.08);
+  }
+  .number-card .num {
+    font-size: 52px; font-weight: 700; line-height: 1;
+    margin-bottom: 2px;
+  }
+  .number-card .ko {
+    font-size: 15px; color: #8a8aa8;
+  }
+  .number-card .card-stars {
+    position: absolute; top: 6px; right: 8px;
+    font-size: 12px; display: flex; gap: 1px;
+  }
+  .number-card .card-stars .star { color: #FFD93D; }
+  .number-card .card-stars .star.empty { color: #E5E5EA; }
+
+  /* ---------- 연습 화면 ---------- */
+  .practice {
+    height: 100%; display: none; flex-direction: column;
+    padding: 16px 24px;
+  }
+  .practice.active { display: flex; }
+  .practice-header {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+  }
+  .btn-back {
+    background: white; border: none; border-radius: 999px;
+    padding: 10px 20px; font-size: 22px; cursor: pointer;
+    font-family: inherit; font-weight: 700; color: #6b6b8a;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.08);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-back:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.08); }
+  .step-indicator {
+    display: flex; gap: 8px; flex: 1; justify-content: center;
+  }
+  .step-dot {
+    background: white; border-radius: 999px;
+    padding: 10px 20px; font-size: 20px; font-weight: 700;
+    color: #b8b8d0; display: flex; align-items: center; gap: 8px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.06);
+  }
+  .step-dot.active {
+    background: linear-gradient(135deg, #FFA94D, #FF6B9D);
+    color: white;
+    box-shadow: 0 3px 0 #C55C7A;
+  }
+  .step-dot.done {
+    background: #6BCF7F; color: white;
+    box-shadow: 0 3px 0 #4CAF60;
+  }
+  .step-dot .step-num {
+    background: rgba(255,255,255,0.4); border-radius: 999px;
+    width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .step-dot.active .step-num, .step-dot.done .step-num {
+    background: rgba(255,255,255,0.35);
+  }
+
+  .practice-body {
+    flex: 1; display: grid; grid-template-columns: 1fr 1.4fr; gap: 20px;
+    min-height: 0;
+  }
+
+  /* 왼쪽: 정보 패널 */
+  .info-panel {
+    background: white; border-radius: 32px; padding: 20px;
+    display: flex; flex-direction: column; align-items: center;
+    box-shadow: 0 8px 0 rgba(0,0,0,0.06);
+    overflow: hidden;
+  }
+  .info-num {
+    font-size: 160px; font-weight: 700; line-height: 0.9;
+    margin: 0;
+  }
+  .info-ko {
+    font-size: 40px; margin: 4px 0 12px;
+    color: #6b6b8a;
+  }
+  .info-en {
+    font-size: 20px; color: #b8b8d0; letter-spacing: 1px;
+    margin-bottom: 12px; text-transform: uppercase;
+  }
+  .info-objects {
+    background: #FFF9DC; border-radius: 20px; padding: 14px;
+    width: 100%; flex: 1;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+    gap: 4px; min-height: 0;
+    align-content: center;
+  }
+  .info-objects .emoji {
+    font-size: 34px;
+    animation: bounce-in 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) both;
+  }
+  .info-objects.zero {
+    color: #b8b8d0; font-size: 20px;
+  }
+  @keyframes bounce-in {
+    0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+
+  /* 오른쪽: 그리기 영역 */
+  .canvas-panel {
+    background: white; border-radius: 32px; padding: 20px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 8px 0 rgba(0,0,0,0.06);
+    position: relative;
+    min-height: 0;
+  }
+  .canvas-title {
+    font-size: 24px; text-align: center;
+    color: #6b6b8a; margin: 0 0 8px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .canvas-wrapper {
+    flex: 1; position: relative;
+    background: linear-gradient(180deg, #FAFAFF 0%, #F0F4FF 100%);
+    border-radius: 20px;
+    border: 4px dashed #D4D4E5;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .canvas-wrapper svg, .canvas-wrapper canvas {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  }
+  .canvas-wrapper canvas {
+    touch-action: none;
+    z-index: 2;
+  }
+  .guide-svg { z-index: 1; }
+
+  /* 점선 스타일 */
+  .stroke-outline {
+    fill: none; stroke-linecap: round; stroke-linejoin: round;
+  }
+  .stroke-dashed {
+    stroke-dasharray: 6 10;
+    opacity: 0.65;
+  }
+  .stroke-faint {
+    opacity: 0.15;
+  }
+  .start-dot {
+    animation: pulse-dot 1.4s ease-in-out infinite;
+    transform-origin: center;
+    transform-box: fill-box;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.25); }
+  }
+  .arrow-head {
+    animation: pulse-arrow 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse-arrow {
+    0%, 100% { opacity: 0.9; }
+    50% { opacity: 0.4; }
+  }
+  .stroke-animate {
+    stroke-dasharray: var(--len);
+    stroke-dashoffset: var(--len);
+    animation: draw-stroke var(--dur, 1.6s) ease-in-out forwards;
+    animation-delay: var(--delay, 0s);
+  }
+  @keyframes draw-stroke {
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* 하단 버튼 바 */
+  .action-bar {
+    display: flex; gap: 12px; margin-top: 12px; justify-content: center;
+  }
+  .btn {
+    background: white; border: none; border-radius: 999px;
+    padding: 12px 24px; font-size: 22px; cursor: pointer;
+    font-family: inherit; font-weight: 700; color: #6b6b8a;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+    display: flex; align-items: center; gap: 8px;
+    transition: transform 0.1s;
+  }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,0.1); }
+  .btn-primary {
+    background: linear-gradient(135deg, #FF6B9D, #FFA94D); color: white;
+    box-shadow: 0 4px 0 #C55C7A;
+  }
+  .btn-primary:active { box-shadow: 0 2px 0 #C55C7A; }
+  .btn-success {
+    background: linear-gradient(135deg, #6BCF7F, #4DABF7); color: white;
+    box-shadow: 0 4px 0 #4CAF60;
+  }
+  .btn-success:active { box-shadow: 0 2px 0 #4CAF60; }
+  .btn-icon {
+    padding: 12px 16px; font-size: 24px;
+  }
+
+  /* ---------- 완료 축하 오버레이 ---------- */
+  .celebration {
+    position: absolute; inset: 0; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.4); z-index: 100;
+    backdrop-filter: blur(6px);
+  }
+  .celebration.active { display: flex; }
+  .celebration-card {
+    background: white; border-radius: 40px; padding: 40px 60px;
+    text-align: center; position: relative;
+    animation: pop-in 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) both;
+    box-shadow: 0 12px 0 rgba(0,0,0,0.15);
+  }
+  @keyframes pop-in {
+    0% { transform: scale(0) rotate(-10deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+  .celebration-emoji { font-size: 100px; margin-bottom: 8px; animation: wobble 1s ease-in-out infinite; }
+  @keyframes wobble {
+    0%, 100% { transform: rotate(-8deg); }
+    50% { transform: rotate(8deg); }
+  }
+  .celebration-title {
+    font-size: 48px; font-weight: 700;
+    background: linear-gradient(90deg, #FF6B9D, #FFA94D, #FFD93D);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin: 0 0 8px;
+  }
+  .celebration-sub { font-size: 26px; color: #8a8aa8; margin: 0 0 20px; }
+  .celebration-stars { font-size: 60px; margin: 12px 0 20px; letter-spacing: 8px; }
+  .celebration-stars .star { display: inline-block; opacity: 0; }
+  .celebration-stars .star.show { animation: star-pop 0.5s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards; }
+  @keyframes star-pop {
+    0% { opacity: 0; transform: scale(0) rotate(-360deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0); }
+  }
+  .celebration-actions { display: flex; gap: 12px; justify-content: center; }
+
+  /* 떠다니는 축하 이모지 */
+  .confetti {
+    position: absolute; font-size: 32px;
+    pointer-events: none;
+    animation: confetti-fall 2s ease-out forwards;
+  }
+  @keyframes confetti-fall {
+    0% { transform: translateY(0) rotate(0); opacity: 1; }
+    100% { transform: translateY(120vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* 큰 버튼 - "쓰는 순서 보기" */
+  .demo-play-btn {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    background: white;
+    padding: 20px 32px;
+    border-radius: 999px;
+    font-size: 28px; font-weight: 700;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.1);
+    display: flex; align-items: center; gap: 12px;
+    color: #6b6b8a; cursor: pointer;
+    animation: gentle-pulse 2s ease-in-out infinite;
+  }
+  @keyframes gentle-pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.05); }
+  }
+  .demo-play-btn.hidden { display: none; }
+  .demo-play-btn:active { transform: translate(-50%, -48%); }
+
+  /* 격려 뱃지 (그리는 도중 표시) */
+  .encourage-badge {
+    position: absolute; top: 12px; right: 12px;
+    background: linear-gradient(135deg, #6BCF7F, #4DABF7); color: white;
+    padding: 8px 16px; border-radius: 999px;
+    font-size: 20px; font-weight: 700;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+    z-index: 4;
+    animation: badge-in 0.4s cubic-bezier(0.68, -0.55, 0.27, 1.55) both;
+  }
+  @keyframes badge-in {
+    0% { transform: translateX(80px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+  }
+
+  /* 반응형: 작은 태블릿 세로 */
+  @media (max-aspect-ratio: 1/1) {
+    .number-grid { grid-template-columns: repeat(5, 1fr); }
+    .practice-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .info-num { font-size: 100px; }
+    .info-ko { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- 홈 화면 -->
+  <div class="home" id="home">
+    <div class="home-header">
+      <h1 class="home-title">숫자 쓰기 연습</h1>
+      <div class="home-subtitle">숫자를 골라볼까요?</div>
+      <div class="stars-collected" id="totalStars">⭐ <span id="totalStarsNum">0</span></div>
+    </div>
+    <div class="number-grid" id="numberGrid"></div>
+  </div>
+
+  <!-- 연습 화면 -->
+  <div class="practice" id="practice">
+    <div class="practice-header">
+      <button class="btn-back" onclick="goHome()">← 처음으로</button>
+      <div class="step-indicator" id="stepIndicator">
+        <div class="step-dot" data-step="0"><span class="step-num">1</span><span>보기</span></div>
+        <div class="step-dot" data-step="1"><span class="step-num">2</span><span>따라쓰기</span></div>
+        <div class="step-dot" data-step="2"><span class="step-num">3</span><span>혼자쓰기</span></div>
+      </div>
+      <div style="width: 130px"></div>
+    </div>
+
+    <div class="practice-body">
+      <div class="info-panel" id="infoPanel">
+        <div class="info-num" id="infoNum">0</div>
+        <div class="info-ko" id="infoKo">영</div>
+        <div class="info-en" id="infoEn">zero</div>
+        <div class="info-objects" id="infoObjects"></div>
+      </div>
+
+      <div class="canvas-panel">
+        <div class="canvas-title" id="canvasTitle">👀 숫자 모양을 잘 보세요</div>
+        <div class="canvas-wrapper" id="canvasWrapper">
+          <svg class="guide-svg" id="guideSvg" preserveAspectRatio="xMidYMid meet"></svg>
+          <canvas id="drawCanvas"></canvas>
+          <button class="demo-play-btn" id="demoBtn" onclick="playStrokeDemo()">
+            ▶️ <span>쓰는 순서 보기</span>
+          </button>
+        </div>
+        <div class="action-bar" id="actionBar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 완료 축하 -->
+  <div class="celebration" id="celebration">
+    <div class="celebration-card">
+      <div class="celebration-emoji" id="celebEmoji">🎉</div>
+      <h2 class="celebration-title" id="celebTitle">참 잘했어요!</h2>
+      <p class="celebration-sub" id="celebSub">숫자를 완성했어요</p>
+      <div class="celebration-stars" id="celebStars">
+        <span class="star">⭐</span><span class="star">⭐</span><span class="star">⭐</span>
+      </div>
+      <div class="celebration-actions">
+        <button class="btn" onclick="closeCelebration()">👍 좋아요</button>
+        <button class="btn btn-primary" id="nextBtn" onclick="nextNumber()">다음 숫자 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="number-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
