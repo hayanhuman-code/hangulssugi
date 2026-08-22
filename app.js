@@ -39,6 +39,25 @@ function svgEl(tag, attrs) {
   return el;
 }
 
+// ---------- 획 시작 표식 위치 ----------
+// 4와 5는 두 획이 같은 점에서 시작한다. 표식을 좌표 그대로 찍으면 나중에 그린
+// 2번이 1번을 완전히 덮어, 아이 화면에는 "2"만 남고 1번 획의 시작점이 사라진다.
+// 겹치는 표식은 자기 획을 따라 조금 밀어서 둘 다 보이게 한다 — 여전히 같은 획 위이므로
+// 어느 획의 시작인지는 그대로 읽힌다.
+function placeMarker(pathEl, start, placed, minSep) {
+  const clash = q => placed.some(m => Math.hypot(m.x - q.x, m.y - q.y) < minSep);
+  let pt = { x: start[0], y: start[1] };
+  if (clash(pt)) {
+    const len = pathEl.getTotalLength();
+    for (let d = minSep; d <= len; d += 4) {
+      const q = pathEl.getPointAtLength(d);
+      if (!clash(q)) { pt = { x: q.x, y: q.y }; break; }
+    }
+  }
+  placed.push(pt);
+  return pt;
+}
+
 // ---------- 오디오 (간단한 신디사이저) ----------
 function initAudio() {
   if (STATE.audioCtx) return;
@@ -273,13 +292,17 @@ function playStrokeDemo(auto) {
   guide.classList.add('dimmed');    // 가이드는 '흐려질' 뿐, 파괴되지 않는다
   if (btn) btn.disabled = true;
 
+  // 1차: 애니메이션되는 획. 2차: 그 위에 올라가는 시작점 표식 — 순서를 섞으면
+  // 나중 획이 앞 획의 번호를 덮는다.
   let cumulativeDelay = 0;
-  data.strokes.forEach((stroke, i) => {
+  const paths = [];
+  data.strokes.forEach(stroke => {
     const p = svgEl('path', {
       d: stroke.d, class: 'stroke-outline',
       stroke: data.color, 'stroke-width': strokeW(data)
     });
     overlay.appendChild(p);
+    paths.push(p);
     const len = p.getTotalLength();
     const dur = Math.max(1.2, len / 200);
     p.style.setProperty('--len', len);
@@ -287,22 +310,24 @@ function playStrokeDemo(auto) {
     p.style.setProperty('--dur', dur + 's');
     p.classList.add('stroke-animate');
 
-    // 시작점 표식
-    const [sx, sy] = stroke.start;
+    later(() => sfxDraw(), cumulativeDelay * 1000);
+    cumulativeDelay += dur + 0.3;
+  });
+
+  const marks = [];
+  data.strokes.forEach((stroke, i) => {
+    const m = placeMarker(paths[i], stroke.start, marks, 32);
     overlay.appendChild(svgEl('circle', {
-      cx: sx, cy: sy, r: 14, fill: 'white',
+      cx: m.x, cy: m.y, r: 14, fill: 'white',
       stroke: data.color, 'stroke-width': 5
     }));
     const label = svgEl('text', {
-      x: sx, y: sy + 6, 'text-anchor': 'middle',
+      x: m.x, y: m.y + 6, 'text-anchor': 'middle',
       'font-size': 18, 'font-weight': 'bold',
       fill: data.color, 'font-family': 'Jua, sans-serif'
     });
     label.textContent = (i + 1);
     overlay.appendChild(label);
-
-    later(() => sfxDraw(), cumulativeDelay * 1000);
-    cumulativeDelay += dur + 0.3;
   });
 
   later(() => {
@@ -326,39 +351,50 @@ function stopStrokeDemo() {
 // ---------- 2단계: 따라쓰기 (점선 + 시작점 + 화살표) ----------
 function renderStepTrace(svg, data) {
   svg.innerHTML = '';
-  data.strokes.forEach((s, i) => {
-    // 점선 outline
-    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    p.setAttribute('d', s.d);
-    p.setAttribute('class', 'stroke-outline stroke-dashed');
-    p.setAttribute('stroke', data.color);
-    p.setAttribute('stroke-width', strokeW(data) * 0.8);
+  const sw = strokeW(data) * 0.8;
+  const paths = [];
+
+  // 1차: 가이드 레이어. 획을 하나씩 "몸통+점선+표식" 묶음으로 그리면 나중 획의
+  // 반투명 몸통이 앞 획의 번호 표식을 덮어 흐릿하게 만든다. 그래서 가이드를 먼저 전부 깔고,
+  // 표식은 2차에서 맨 위에 올린다.
+  data.strokes.forEach(s => {
+    // (1) 연한 굵은 몸통 — 글자 모양과 손가락이 지나갈 폭을 보여준다.
+    const p = svgEl('path', {
+      d: s.d, class: 'stroke-outline stroke-body',
+      stroke: data.color, 'stroke-width': sw
+    });
     svg.appendChild(p);
+    paths.push(p);
 
-    // 시작점 (● 애니메이션)
-    const [sx, sy] = s.start;
-    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    dot.setAttribute('cx', sx); dot.setAttribute('cy', sy);
-    dot.setAttribute('r', '16');
-    dot.setAttribute('fill', data.color);
-    dot.setAttribute('class', 'start-dot');
-    svg.appendChild(dot);
+    // (2) 가는 점선 중심선 — 실제로 따라갈 선. 대시가 획 두께보다 길어야 점선으로 읽힌다.
+    const dash = round1(sw * 0.42);
+    svg.appendChild(svgEl('path', {
+      d: s.d, class: 'stroke-outline stroke-dashed',
+      stroke: data.color, 'stroke-width': round1(sw * 0.17),
+      'stroke-dasharray': dash + ' ' + dash
+    }));
 
-    // 번호
-    const numLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    numLabel.setAttribute('x', sx); numLabel.setAttribute('y', sy + 6);
-    numLabel.setAttribute('text-anchor', 'middle');
-    numLabel.setAttribute('font-size', '18');
-    numLabel.setAttribute('font-weight', 'bold');
-    numLabel.setAttribute('fill', 'white');
-    numLabel.setAttribute('font-family', 'Jua, sans-serif');
-    numLabel.textContent = (i + 1);
-    svg.appendChild(numLabel);
-
-    // 화살표: path 위에 몇 개의 방향 삼각형
+    // (3) 진행 방향 화살표
     addArrowsAlongPath(svg, p, data.color);
   });
+
+  // 2차: 시작점 표식 — 같은 좌표에서 시작하는 획끼리 겹치지 않게 배치한다.
+  const marks = [];
+  data.strokes.forEach((s, i) => {
+    const m = placeMarker(paths[i], s.start, marks, 36);
+    svg.appendChild(svgEl('circle', {
+      cx: m.x, cy: m.y, r: 16, fill: data.color, class: 'start-dot'
+    }));
+    const numLabel = svgEl('text', {
+      x: m.x, y: m.y + 6, 'text-anchor': 'middle',
+      'font-size': 18, 'font-weight': 'bold',
+      fill: 'white', 'font-family': 'Jua, sans-serif'
+    });
+    numLabel.textContent = (i + 1);
+    svg.appendChild(numLabel);
+  });
 }
+function round1(v) { return Math.round(v * 10) / 10; }
 function addArrowsAlongPath(svg, pathEl, color) {
   const len = pathEl.getTotalLength();
   const numArrows = Math.max(2, Math.floor(len / 130));
@@ -367,12 +403,14 @@ function addArrowsAlongPath(svg, pathEl, color) {
     const p1 = pathEl.getPointAtLength(t);
     const p2 = pathEl.getPointAtLength(Math.min(len, t + 8));
     const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
-    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-    arrow.setAttribute('points', '-8,-8 12,0 -8,8');
-    arrow.setAttribute('fill', color);
-    arrow.setAttribute('transform', `translate(${p1.x},${p1.y}) rotate(${angle})`);
-    arrow.setAttribute('class', 'arrow-head');
-    svg.appendChild(arrow);
+    // 획과 같은 색으로 칠하면 획 위에서 사라진다. 흰 삼각형 + 색 테두리라야 읽힌다.
+    svg.appendChild(svgEl('polygon', {
+      points: '-7,-8 11,0 -7,8',
+      fill: 'white', stroke: color, 'stroke-width': 2,
+      'stroke-linejoin': 'round',
+      transform: `translate(${p1.x},${p1.y}) rotate(${angle})`,
+      class: 'arrow-head'
+    }));
   }
 }
 

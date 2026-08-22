@@ -215,9 +215,16 @@
   .stroke-outline {
     fill: none; stroke-linecap: round; stroke-linejoin: round;
   }
+  /* 따라쓰기 가이드는 두 겹이다.
+     굵은 획을 그대로 점선으로 만들면(획 24 두께에 대시 20) 점선이 아니라
+     흩어진 네모로 읽혀 아이가 글자를 알아볼 수 없다. 대신 연한 굵은 몸통으로
+     '이 안을 지나가라'를 보여주고, 그 위에 가는 점선 중심선으로 '점선을 따라가라'를
+     보여준다 — 종이 쓰기 교재와 같은 구성. */
+  .stroke-body {
+    opacity: 0.22;
+  }
   .stroke-dashed {
-    stroke-dasharray: 6 10;
-    opacity: 0.65;
+    opacity: 0.85;
   }
   .stroke-faint {
     opacity: 0.15;
