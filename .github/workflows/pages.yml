@@ -9,9 +9,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    # 기본 브랜치. main으로 이름을 바꿔도 계속 동작하도록 둘 다 적어 둔다.
     branches:
-      - claude/writing-practice-app-v2-8y6ubg
       - main
   workflow_dispatch:
 
