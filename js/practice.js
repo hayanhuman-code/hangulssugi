@@ -31,8 +31,13 @@
   var el = {};
   var S = {
     tab: null, item: null, stage: 1,
+    chars: [], charIdx: 0,      // 단어는 한 번에 한 글자씩 쓴다
     glyph: null, drawn: 0, ink: [], playing: null, soundToggle: 0
   };
+
+  /* 지금 쓰고 있는 글자. 낱자·음절이면 항목 그대로다. */
+  function currentChar() { return S.chars[S.charIdx] || S.item.ch; }
+  function isLastChar() { return S.charIdx >= S.chars.length - 1; }
 
   function $(id) { return document.getElementById(id); }
 
@@ -94,7 +99,10 @@
 
     S.tab = tab;
     S.item = item;
-    S.glyph = global.Glyphs.forText(item.ch);
+    // 단어를 한 화면에 나란히 작게 넣으면 획이 촘촘해져 4세 손으로 못 쓴다.
+    // 글자 단위로 쪼개 한 번에 하나씩, 화면 가득 크게 쓰게 한다.
+    S.chars = String(item.ch).split('').filter(function (c) { return c.trim() !== ''; });
+    S.charIdx = 0;
     S.soundToggle = 0;
     setStage(stage || 1);
   }
@@ -107,13 +115,14 @@
     var spec = STAGES[stage];
     var item = S.item;
 
+    // 지금 쓰는 글자 하나만 조립한다 (k=1 이므로 획이 얇아지지 않는다)
+    S.glyph = global.Glyphs.forText(currentChar());
+
     el.badge.textContent = spec.badge;
     el.panelTip.innerHTML = spec.tip;
     el.next.innerHTML = (stage === 1 ? global.Icons.play(36) : '') + spec.cta;
 
-    el.panelGlyph.textContent = item.ch;
-    el.panelGlyph.className = 'glyph' + (item.ch.length > 1 ? ' long' : '');
-    el.panelName.textContent = item.name;
+    renderWordPreview();
     el.panelEmoji.textContent = item.emoji;
     el.panelWord.innerHTML = highlight(item);
     el.panelCap.textContent = S.tab.key === 'num' ? '세는 말' : '대표 단어';
@@ -130,6 +139,25 @@
 
     stopAnimation();
     if (stage === 1) loopAnimation();
+  }
+
+  /* 위쪽 큰 카드 — 단어 전체를 보여주고 지금 쓰는 글자만 진하게.
+     아이가 "지금 이 글자를 쓰면 이 단어가 된다"를 눈으로 잇게 한다. */
+  function renderWordPreview() {
+    var item = S.item;
+    if (S.chars.length < 2) {
+      el.panelGlyph.textContent = item.ch;
+      el.panelGlyph.className = 'glyph' + (item.ch.length > 1 ? ' long' : '');
+      el.panelName.textContent = item.name;
+      return;
+    }
+    // 여러 글자짜리 단어
+    el.panelGlyph.className = 'glyph long word-preview';
+    el.panelGlyph.innerHTML = S.chars.map(function (c, i) {
+      var cls = i === S.charIdx ? 'now' : (i < S.charIdx ? 'done' : '');
+      return '<span class="' + cls + '">' + esc(c) + '</span>';
+    }).join('');
+    el.panelName.textContent = item.name;
   }
 
   /* 대표 단어에서 지금 배우는 부분에 색을 넣는다 */
@@ -443,13 +471,22 @@
   function playSound() {
     S.soundToggle = (S.soundToggle + 1) % 2;
     global.Sound.chime.pop();
+    if (S.chars.length > 1) {
+      // 단어는 글자 하나 <-> 단어 전체를 번갈아 들려준다
+      global.Sound.speak(S.soundToggle === 0 ? currentChar() : S.item.word);
+      return;
+    }
     global.Sound.speak(S.soundToggle === 1 ? S.item.say : S.item.word);
   }
 
   function advance() {
-    var gained = global.Progress.award(S.tab.key, S.item.id, S.stage);
-    global.App.refreshStars();
-    if (gained > 0) global.Sound.chime.star();
+    // 여러 글자짜리 단어는 마지막 글자를 끝냈을 때만 별을 준다.
+    // 글자마다 주면 첫 글자에서 이미 만점이 되어 나머지가 의미를 잃는다.
+    if (isLastChar()) {
+      var gained = global.Progress.award(S.tab.key, S.item.id, S.stage);
+      global.App.refreshStars();
+      if (gained > 0) global.Sound.chime.star();
+    }
 
     if (S.stage < 3) {
       global.Sound.chime.pop();
@@ -457,10 +494,35 @@
       return;
     }
 
+    // 아직 남은 글자가 있으면 다음 글자로 미끄러지듯 넘어간다
+    if (!isLastChar()) {
+      stopAnimation();
+      global.Sound.chime.star();
+      S.charIdx += 1;
+      slideToNextChar();
+      return;
+    }
+
     stopAnimation();
     global.Sound.chime.finish();
-    global.Sound.speak('참 잘했어요');
+    global.Sound.speak(S.chars.length > 1 ? S.item.word + ' 완성' : '참 잘했어요');
     global.App.showReward(S.tab, S.item);
+  }
+
+  /* 다음 글자로 전환 — 칸이 옆에서 미끄러져 들어온다 */
+  function slideToNextChar() {
+    var reduce = global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var go = function () {
+      setStage(1);
+      global.Sound.speak(currentChar());
+      if (reduce) return;
+      el.box.classList.remove('slide-out');
+      el.box.classList.add('slide-in');
+      global.setTimeout(function () { el.box.classList.remove('slide-in'); }, 420);
+    };
+    if (reduce) { go(); return; }
+    el.box.classList.add('slide-out');
+    global.setTimeout(go, 200);
   }
 
   function leave() { stopAnimation(); }

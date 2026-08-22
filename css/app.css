@@ -363,3 +363,21 @@ body { display: flex; align-items: center; justify-content: center; }
   font-size: 28px; color: var(--ink-mid); text-align: center; padding: 40px;
 }
 body.portrait #rotate { display: flex; }
+
+/* 단어 — 글자 하나를 끝내고 다음 글자로 넘어갈 때 칸이 미끄러진다 */
+.canvas-box.slide-out { transform: translateX(-38px); opacity: 0; transition: transform .2s ease-in, opacity .2s ease-in; }
+.canvas-box.slide-in  { animation: slide-in-char .42s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes slide-in-char {
+  from { transform: translateX(56px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* 위쪽 큰 카드의 단어 미리보기 — 지금 쓰는 글자만 진하게 */
+/* 아직 안 쓴 글자 = 연회색, 이미 쓴 글자 = 옅은 제 색, 지금 쓰는 글자 = 진한 제 색 */
+.glyph.word-preview span { color: var(--line); transition: color .2s ease, opacity .2s ease; }
+.glyph.word-preview span.done { color: var(--deep); opacity: .38; }
+.glyph.word-preview span.now  { color: var(--deep); opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .canvas-box.slide-out, .canvas-box.slide-in { transition: none; animation: none; transform: none; opacity: 1; }
+}
