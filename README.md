@@ -73,22 +73,25 @@ Preserve the interaction model, motion timing, and visual hierarchy. Substitute 
 
 #### 2b. Step 1 — 보기 (See)
 - Canvas title: "👀 숫자 모양을 잘 보세요" (Look closely at the number's shape).
-- Guide SVG shows the number **filled in solid** with the accent color (stroke-width 32, 0.9 opacity, round caps/joins).
+- Guide SVG shows the number **filled in solid** with the accent color (`strokeWidth` from the data — 30, 0.9 opacity, round caps/joins).
 - The **stroke-order animation auto-plays once** 350ms after entering the step — the child sees the writing order without having to discover a button.
 - Replay button "🎬 다시 보기" (Watch again) sits at the **bottom-center of the canvas** (`bottom: 14px`, `translateX(-50%)`), white, 14px 26px padding, 999px, 22px font, `0 5px 0 rgba(0,0,0,0.1)` shadow, gentle pulse (scale 1 ↔ 1.05, 2s ease). It is deliberately *not* centered over the glyph — a center-floating button covers exactly the shape the child is meant to study. Disabled (opacity 0.45, no pulse) while the demo plays.
 - **Stroke-order animation** (see *Stroke-Order Demo Layer* below):
   - Each stroke path is drawn using `stroke-dasharray = pathLength, stroke-dashoffset = pathLength → 0` over `max(1.2s, pathLength/200)`.
   - Strokes play sequentially with 0.3s gap between them.
-  - At each stroke's start point, a white circle (r=14) with a colored border (5px) and a numbered label (1, 2, ...) marks the starting position.
+  - At each stroke's start point, a white circle (r=14) with a colored border (5px) and a numbered label (1, 2, ...) marks the starting position. Markers are appended after every animated path so they stay on top.
+  - **Coincident starts are fanned out.** In 4 and 5 (and so 14, 15) both strokes begin at the *same* coordinate; drawn as-is, stroke 2's marker completely covers stroke 1's and the child sees only a "2". `placeMarker()` walks a colliding marker forward along its own path until it clears the previous one, so it still sits on the right stroke.
   - A soft "draw" tone (660Hz sine, 50ms, 0.05 vol) plays at the start of each stroke.
 - Action bar: single primary CTA "따라 써볼까요? →" (Shall we trace it?) — pink→orange gradient, white. It is the **only** element in the bar, so `justify-content: center` actually centers it.
 
 #### 2c. Step 2 — 따라쓰기 (Trace)
 - Canvas title: "✏️ 점선을 따라 손가락으로 그려보세요" (Trace the dotted line with your finger).
-- Guide SVG:
-  - Each stroke rendered as a **dotted outline**: `stroke-dasharray: 6 10; opacity: 0.65; stroke-width: 24; round caps/joins`.
-  - At each stroke start: solid colored dot (r=16) with a pulsing scale animation (1 ↔ 1.25, 1.4s ease-in-out infinite) + a white numbered label (18px bold, "1", "2", …).
-  - **Arrow heads** placed along each path: one arrow per ~130px of path length (min 2). Each is a small colored triangle polygon `-8,-8 12,0 -8,8` transformed to the tangent angle at that point on the path, with a subtle opacity pulse (0.9 ↔ 0.4, 1.4s).
+- Guide SVG — **two layers per stroke**, like a paper tracing worksheet:
+  - **Body**: the full-thickness stroke at `opacity: 0.22`, `stroke-width: 24` (0.8 × `strokeWidth`), round caps/joins. Shows the shape and the width of the channel the finger should stay inside.
+  - **Dotted centreline**: a thin line down the same path — `stroke-width: 4` (0.17 × body), `stroke-dasharray: 10 10` (0.42 × body each), round caps, `opacity: 0.85`. This is the line the child actually follows.
+  - A single thick dashed stroke does *not* work here: at 24 thickness the round caps alone bridge any child-friendly gap, so it renders as a solid silhouette; widen the gaps enough to break it and the glyph reads as a row of detached blocks rather than a number. Two layers keep the shape legible *and* the path obviously dotted.
+  - At each stroke start: solid colored dot (r=16) with a pulsing scale animation (1 ↔ 1.25, 1.4s ease-in-out infinite) + a white numbered label (18px bold, "1", "2", …). All guide layers are drawn first and the markers second, so a later stroke's translucent body never dims an earlier stroke's number.
+  - **Arrow heads** placed along each path: one arrow per ~130px of path length (min 2). Each is a **white** triangle polygon `-7,-8 11,0 -7,8` with a 2px accent-colored outline, transformed to the tangent angle at that point on the path, with a subtle opacity pulse (0.9 ↔ 0.4, 1.4s). Filling them with the accent color hides them against the stroke they sit on.
 - Below the guide, the child draws on a canvas overlay (see Drawing Interaction).
 - Action bar (three buttons, 12px gap, centered):
   - 🎬 "다시 보기" icon button — replay the stroke-order animation.
@@ -258,7 +261,7 @@ See `number-data.js`. Every glyph is drawn on a **200×200 square cell** — the
 
 - `strokes: { d: string, start: [x,y] }[]` — one entry per pen-lift stroke, in the order a child should write them. Arrow direction is derived from the path's tangent at render time (`addArrowsAlongPath`), so no stored `arrow` field is needed; `xOffset` was likewise never read and has been removed.
 - `strokeWidth: 30` — the pen thickness the geometry was designed around; renderers scale their guides off this rather than hard-coding a number.
-- `viewBox` — `0 0 200 200` for single digits. Two-digit numbers are **composed at load time**, never hand-drawn a second time, so their viewBox width is computed (e.g. `0 0 248 200` for 10).
+- `viewBox` — `0 0 200 200` for single digits, which `compose()` also **centres horizontally** inside the cell (the raw glyph coordinates are not symmetric — 1 is only 74 wide and sat 41 left / 85 right before centring). Two-digit numbers are **composed at load time**, never hand-drawn a second time, so their viewBox width is computed (e.g. `0 0 248 200` for 10).
 - The SVG viewBox is preserved via `preserveAspectRatio="xMidYMid meet"`.
 
 #### Stroke order
@@ -336,6 +339,44 @@ Bundled in this handoff:
 - `app.js` — all state, screen rendering, drawing canvas, SVG guide generation, stroke-order animation, sound synthesis, progress persistence.
 - `number-data.js` — the 21 number definitions (stroke paths, colors, Korean/English names, count emojis).
 
+## Running It
+
+The prototype is a **static site with no build step** — three files, no dependencies, works offline.
+
+### Locally
+```bash
+git clone https://github.com/hayanhuman-code/hangulssugi.git
+cd hangulssugi
+python3 -m http.server 8000      # or: npx serve .
+# open http://localhost:8000
+```
+Opening `index.html` straight off the filesystem also works. A server is only
+nicer because `localStorage` is then keyed to an origin rather than to the file path.
+
+### On the web — GitHub Pages
+`.github/workflows/pages.yml` publishes the repository root on every push to the
+default branch. **It needs one manual switch first:**
+
+> Settings → Pages → *Build and deployment* → **Source: GitHub Actions**
+
+After that the app is live at `https://hayanhuman-code.github.io/hangulssugi/`.
+Re-runs are automatic on push; *Actions → Deploy to GitHub Pages → Run workflow*
+triggers one by hand. The repository is public, so Pages is free.
+
+### As one file
+```bash
+node tools/bundle.mjs        # -> dist/index.html
+```
+Inlines both scripts into a single self-contained HTML file for cases where a
+repository or a web server is inconvenient — sending the app to someone directly,
+dropping it on a tablet, attaching it to a wiki page, or publishing it as a
+Claude Artifact. `dist/` is git-ignored; regenerate it rather than committing it.
+
+### Device notes
+- Designed for **landscape tablet**; it collapses to a stacked layout at aspect ratio ≤ 1.
+- On iPad, *Share → Add to Home Screen* gives a full-screen, chrome-free launcher.
+- Sound needs one tap anywhere first — iOS Safari only unlocks audio inside a user gesture.
+
 ## Recommended Implementation Notes
 
 1. **Framework choice for a real app**: React Native (with `react-native-svg` for stroke paths and `react-native-skia` or a `PanResponder`+`<Canvas>` for finger drawing) or SwiftUI (with `Path` + `DragGesture` on a `Canvas`). Flutter also fits (`CustomPaint` + `GestureDetector` + `path_drawing` for parsing the SVG `d` strings).
@@ -365,3 +406,31 @@ Bundled in this handoff:
 - **Two-digit numbers are composed from the single-digit originals**, not redrawn. 10–19 inherit the serif-less 1 for free, and stroke counts drop accordingly (10 is 2 strokes, not 3; 11 is 2, not 4).
 - **Optical kerning** via per-band ink profiles, so 17 and 19 no longer look spaced apart.
 - **Stroke palette darkened one step.** Every accent now clears 3:1 against the canvas guide background; the worst offender, `#FFD93D` on 3 and 13, measured 1.25:1 and is now `#C07E00` at 3.07:1. Card pastels are untouched.
+
+### Stage C: trace-guide rendering fixes
+- **The "dotted" trace guide was never dotted.** `stroke-dasharray: 6 10` on a 24-thick
+  round-capped stroke paints 6 + 24 = 30 units per 16-unit period, so every gap was
+  filled by the caps and Step 2 rendered as a solid silhouette — visually identical to
+  Step 1 and with no line to follow. Replaced by the two-layer worksheet guide
+  (faint full-width body + thin dotted centreline) described above.
+- **Stroke 1's start marker was invisible on 4, 5, 14 and 15.** Both strokes of 4 and 5
+  start at the same point, so the later marker sat exactly on top of the earlier one and
+  the child was shown a "2" with no "1" anywhere. Colliding markers now slide forward
+  along their own stroke until they clear.
+- **Markers no longer dimmed by later strokes.** Guides and markers are drawn in two
+  passes, in both the trace guide and the stroke-order demo overlay; previously each
+  stroke was emitted as a body-plus-marker bundle, so stroke 2's translucent body
+  washed out stroke 1's number.
+- **Direction arrows made visible.** They were filled with the same accent color as the
+  stroke they sit on, which made them near-invisible; they are now white with a
+  2px accent outline.
+- **Single digits centred in their cell.** `compose()` only balanced multi-digit
+  numbers, so 1 (74 wide) sat 41 left / 85 right — noticeably shoved to one side.
+  Single digits now get the same optical centring; every glyph is symmetric in its cell.
+
+### Known gaps (unchanged)
+- No screen-reader labels and no `prefers-reduced-motion` handling — see
+  *Recommended Implementation Notes* §5.
+- At `opacity: 0.65`+ the trace guide's effective contrast against the canvas background
+  is ~2.0–2.7:1. The solid Step 1 stroke clears 3:1 for every accent; the deliberately
+  faded guides do not, and are treated as decorative.
