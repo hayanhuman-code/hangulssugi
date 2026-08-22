@@ -369,11 +369,13 @@ because `localStorage` is then keyed to an origin rather than to the file path.
 
 ### On the web — GitHub Pages
 `.github/workflows/pages.yml` publishes the repository root on every push to the
-default branch. **It needs one manual switch first:**
+default branch, and turns Pages on itself (`configure-pages` with `enablement: true`) —
+no repository setting to flip by hand. The app is live at
+`https://hayanhuman-code.github.io/hangulssugi/`.
 
-> Settings → Pages → *Build and deployment* → **Source: GitHub Actions**
-
-After that the app is live at `https://hayanhuman-code.github.io/hangulssugi/`.
+If the job ever fails with *"Get Pages site failed … Not Found"*, Pages is off and the
+action was not allowed to enable it; set it manually under
+Settings → Pages → *Build and deployment* → **Source: GitHub Actions**.
 Re-runs are automatic on push; *Actions → Deploy to GitHub Pages → Run workflow*
 triggers one by hand. The repository is public, so Pages is free.
 
