@@ -229,28 +229,30 @@
     { color: '#D14A7D', bgColor: '#FDDEEB' }   // 9
   ];
 
+  // ko = 한자어 수사(삼), native = 순우리말 수사(셋), counter = 단위명사 앞 형태(세 개)
+  // 4세 아이는 "삼"과 "셋"을 따로 배우므로 둘 다 노출한다.
   const META = {
-    0:  { ko: '영',   en: 'zero',      object: { emoji: '🥚', label: '알',       count: 0 } },
-    1:  { ko: '일',   en: 'one',       object: { emoji: '🌸', label: '꽃',       count: 1 } },
-    2:  { ko: '이',   en: 'two',       object: { emoji: '🦆', label: '오리',     count: 2 } },
-    3:  { ko: '삼',   en: 'three',     object: { emoji: '🍎', label: '사과',     count: 3 } },
-    4:  { ko: '사',   en: 'four',      object: { emoji: '🐱', label: '고양이',   count: 4 } },
-    5:  { ko: '오',   en: 'five',      object: { emoji: '⭐', label: '별',       count: 5 } },
-    6:  { ko: '육',   en: 'six',       object: { emoji: '🐝', label: '벌',       count: 6 } },
-    7:  { ko: '칠',   en: 'seven',     object: { emoji: '🌈', label: '무지개',   count: 7 } },
-    8:  { ko: '팔',   en: 'eight',     object: { emoji: '🐙', label: '문어',     count: 8 } },
-    9:  { ko: '구',   en: 'nine',      object: { emoji: '🎈', label: '풍선',     count: 9 } },
-    10: { ko: '십',   en: 'ten',       object: { emoji: '🍭', label: '사탕',     count: 10 } },
-    11: { ko: '십일', en: 'eleven',    object: { emoji: '🐞', label: '무당벌레', count: 11 } },
-    12: { ko: '십이', en: 'twelve',    object: { emoji: '🍓', label: '딸기',     count: 12 } },
-    13: { ko: '십삼', en: 'thirteen',  object: { emoji: '🐟', label: '물고기',   count: 13 } },
-    14: { ko: '십사', en: 'fourteen',  object: { emoji: '🍀', label: '클로버',   count: 14 } },
-    15: { ko: '십오', en: 'fifteen',   object: { emoji: '🐢', label: '거북이',   count: 15 } },
-    16: { ko: '십육', en: 'sixteen',   object: { emoji: '🍇', label: '포도',     count: 16 } },
-    17: { ko: '십칠', en: 'seventeen', object: { emoji: '⭐', label: '별',       count: 17 } },
-    18: { ko: '십팔', en: 'eighteen',  object: { emoji: '🍪', label: '쿠키',     count: 18 } },
-    19: { ko: '십구', en: 'nineteen',  object: { emoji: '🌟', label: '반짝별',   count: 19 } },
-    20: { ko: '이십', en: 'twenty',    object: { emoji: '🎉', label: '파티',     count: 20 } }
+    0:  { ko: '영',   native: '',       counter: '',       en: 'zero',      object: { emoji: '🥚', label: '달걀',     count: 0 } },
+    1:  { ko: '일',   native: '하나',   counter: '한',     en: 'one',       object: { emoji: '🌸', label: '꽃',       count: 1 } },
+    2:  { ko: '이',   native: '둘',     counter: '두',     en: 'two',       object: { emoji: '🦆', label: '오리',     count: 2 } },
+    3:  { ko: '삼',   native: '셋',     counter: '세',     en: 'three',     object: { emoji: '🍎', label: '사과',     count: 3 } },
+    4:  { ko: '사',   native: '넷',     counter: '네',     en: 'four',      object: { emoji: '🐱', label: '고양이',   count: 4 } },
+    5:  { ko: '오',   native: '다섯',   counter: '다섯',   en: 'five',      object: { emoji: '⭐', label: '별',       count: 5 } },
+    6:  { ko: '육',   native: '여섯',   counter: '여섯',   en: 'six',       object: { emoji: '🐝', label: '벌',       count: 6 } },
+    7:  { ko: '칠',   native: '일곱',   counter: '일곱',   en: 'seven',     object: { emoji: '🌈', label: '무지개',   count: 7 } },
+    8:  { ko: '팔',   native: '여덟',   counter: '여덟',   en: 'eight',     object: { emoji: '🐙', label: '문어',     count: 8 } },
+    9:  { ko: '구',   native: '아홉',   counter: '아홉',   en: 'nine',      object: { emoji: '🎈', label: '풍선',     count: 9 } },
+    10: { ko: '십',   native: '열',     counter: '열',     en: 'ten',       object: { emoji: '🍭', label: '사탕',     count: 10 } },
+    11: { ko: '십일', native: '열하나', counter: '열한',   en: 'eleven',    object: { emoji: '🐞', label: '무당벌레', count: 11 } },
+    12: { ko: '십이', native: '열둘',   counter: '열두',   en: 'twelve',    object: { emoji: '🍓', label: '딸기',     count: 12 } },
+    13: { ko: '십삼', native: '열셋',   counter: '열세',   en: 'thirteen',  object: { emoji: '🐟', label: '물고기',   count: 13 } },
+    14: { ko: '십사', native: '열넷',   counter: '열네',   en: 'fourteen',  object: { emoji: '🍀', label: '클로버',   count: 14 } },
+    15: { ko: '십오', native: '열다섯', counter: '열다섯', en: 'fifteen',   object: { emoji: '🐢', label: '거북이',   count: 15 } },
+    16: { ko: '십육', native: '열여섯', counter: '열여섯', en: 'sixteen',   object: { emoji: '🍇', label: '포도',     count: 16 } },
+    17: { ko: '십칠', native: '열일곱', counter: '열일곱', en: 'seventeen', object: { emoji: '🐜', label: '개미',     count: 17 } },
+    18: { ko: '십팔', native: '열여덟', counter: '열여덟', en: 'eighteen',  object: { emoji: '🍪', label: '쿠키',     count: 18 } },
+    19: { ko: '십구', native: '열아홉', counter: '열아홉', en: 'nineteen',  object: { emoji: '🍒', label: '체리',     count: 19 } },
+    20: { ko: '이십', native: '스물',   counter: '스무',   en: 'twenty',    object: { emoji: '🎉', label: '파티',     count: 20 } }
   };
 
   const DATA = {};
@@ -262,6 +264,8 @@
       id: String(n),
       category: 'number',
       ko: META[n].ko,
+      native: META[n].native,
+      counter: META[n].counter,
       en: META[n].en,
       object: META[n].object,
       color: hue.color,

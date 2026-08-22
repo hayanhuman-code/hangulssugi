@@ -62,49 +62,53 @@ Preserve the interaction model, motion timing, and visual hierarchy. Substitute 
 - Portrait fallback: body becomes single column, info panel shrinks.
 
 #### 2a. Info Panel (persistent across all 3 steps)
-- White card, 32px radius, 20px padding, `0 8px 0 rgba(0,0,0,0.06)` shadow, centered contents.
-- **Big number**: 160px, Jua 700, tinted with the number's accent color.
-- **Korean name**: 40px, `#6b6b8a`.
-- **English name**: 20px, `#b8b8d0`, uppercase, letter-spacing 1px.
-- **Objects panel** (yellow-tinted box `#FFF9DC`, 20px radius, 14px padding, flex-wrap):
-  - N emoji items at 34px each (see per-number emoji table below), each animating in with a `bounce-in` (0.5s cubic-bezier(0.68,-0.55,0.27,1.55), 0.06s stagger delay per item).
-  - Below: caption "`<emoji-label>` `<N>`개" (e.g. "사과 3개") in 22px `#6b6b8a`.
-  - For **0**: shows text "텅 비었어요! 하나도 없어요 😊" (It's empty! There are none) instead of emojis.
+- White card, 32px radius, 20px padding, `0 8px 0 rgba(0,0,0,0.06)` shadow, contents centered vertically.
+- **Big number**: 150px, Jua 700, tinted with the number's accent color. Tappable — speaks the name.
+- **Number names**: the Sino-Korean reading (삼, 40px `#6b6b8a`) and the native Korean reading (셋, 30px `#7a7a9c`) side by side, separated by a faint `·`. A four-year-old learns both, so both are shown and both are individually tappable. 0 has no native form and that slot is hidden.
+- **English name**: 18px, `#b8b8d0`, uppercase, letter-spacing 1px.
+- **Objects panel** (yellow-tinted box `#FFF9DC`, 20px radius, 12px/14px padding, flex-wrap):
+  - Sized to its **content** (`flex: 0 0 auto`). It previously used `flex: 1` and swallowed the whole panel, leaving a huge empty yellow field under three apples.
+  - N emoji items at 34px each, each animating in with a `bounce-in` (0.5s cubic-bezier(0.68,-0.55,0.27,1.55), 0.05s stagger per item). Re-rendered only when the *number* changes, not on every step change.
+  - Below: tappable caption "`<label>` `<N>`개 🔊" (e.g. "사과 3개 🔊") in 21px `#6b6b8a`.
+  - For **0**: shows "텅 비었어요! 하나도 없어요 😊" above the caption instead of emojis.
 
 #### 2b. Step 1 — 보기 (See)
 - Canvas title: "👀 숫자 모양을 잘 보세요" (Look closely at the number's shape).
-- Guide SVG shows the number **filled in solid** with the accent color (`strokeWidth` from the data — 30, 0.9 opacity, round caps/joins).
+- Guide SVG shows the number **filled in solid** with the accent color (stroke-width 32, 0.9 opacity, round caps/joins).
 - The **stroke-order animation auto-plays once** 350ms after entering the step — the child sees the writing order without having to discover a button.
 - Replay button "🎬 다시 보기" (Watch again) sits at the **bottom-center of the canvas** (`bottom: 14px`, `translateX(-50%)`), white, 14px 26px padding, 999px, 22px font, `0 5px 0 rgba(0,0,0,0.1)` shadow, gentle pulse (scale 1 ↔ 1.05, 2s ease). It is deliberately *not* centered over the glyph — a center-floating button covers exactly the shape the child is meant to study. Disabled (opacity 0.45, no pulse) while the demo plays.
 - **Stroke-order animation** (see *Stroke-Order Demo Layer* below):
   - Each stroke path is drawn using `stroke-dasharray = pathLength, stroke-dashoffset = pathLength → 0` over `max(1.2s, pathLength/200)`.
   - Strokes play sequentially with 0.3s gap between them.
-  - At each stroke's start point, a white circle (r=14) with a colored border (5px) and a numbered label (1, 2, ...) marks the starting position. Markers are appended after every animated path so they stay on top.
-  - **Coincident starts are fanned out.** In 4 and 5 (and so 14, 15) both strokes begin at the *same* coordinate; drawn as-is, stroke 2's marker completely covers stroke 1's and the child sees only a "2". `placeMarker()` walks a colliding marker forward along its own path until it clears the previous one, so it still sits on the right stroke.
+  - At each stroke's start point, a white circle (r=14) with a colored border (5px) and a numbered label (1, 2, ...) marks the starting position.
   - A soft "draw" tone (660Hz sine, 50ms, 0.05 vol) plays at the start of each stroke.
 - Action bar: single primary CTA "따라 써볼까요? →" (Shall we trace it?) — pink→orange gradient, white. It is the **only** element in the bar, so `justify-content: center` actually centers it.
 
 #### 2c. Step 2 — 따라쓰기 (Trace)
 - Canvas title: "✏️ 점선을 따라 손가락으로 그려보세요" (Trace the dotted line with your finger).
-- Guide SVG — **two layers per stroke**, like a paper tracing worksheet:
-  - **Body**: the full-thickness stroke at `opacity: 0.22`, `stroke-width: 24` (0.8 × `strokeWidth`), round caps/joins. Shows the shape and the width of the channel the finger should stay inside.
-  - **Dotted centreline**: a thin line down the same path — `stroke-width: 4` (0.17 × body), `stroke-dasharray: 10 10` (0.42 × body each), round caps, `opacity: 0.85`. This is the line the child actually follows.
-  - A single thick dashed stroke does *not* work here: at 24 thickness the round caps alone bridge any child-friendly gap, so it renders as a solid silhouette; widen the gaps enough to break it and the glyph reads as a row of detached blocks rather than a number. Two layers keep the shape legible *and* the path obviously dotted.
-  - At each stroke start: solid colored dot (r=16) with a pulsing scale animation (1 ↔ 1.25, 1.4s ease-in-out infinite) + a white numbered label (18px bold, "1", "2", …). All guide layers are drawn first and the markers second, so a later stroke's translucent body never dims an earlier stroke's number.
-  - **Arrow heads** placed along each path: one arrow per ~130px of path length (min 2). Each is a **white** triangle polygon `-7,-8 11,0 -7,8` with a 2px accent-colored outline, transformed to the tangent angle at that point on the path, with a subtle opacity pulse (0.9 ↔ 0.4, 1.4s). Filling them with the accent color hides them against the stroke they sit on.
+- Guide SVG — **three separated layers**, like the dotted practice boxes in a workbook. A single thick dashed stroke (the old `stroke-width: 24; dasharray: 6 10`) does not read as a dotted line at all; it reads as a lumpy sausage, and it buried the arrows inside itself.
+  1. **Band** (`.guide-band`) — the full pen width (`strokeWidth`, 30) at `opacity: 0.15`. Says *where the stroke passes*.
+  2. **Dots** (`.guide-dots`) — a thin round-capped `stroke-width: 7`, `stroke-dasharray: 0.1 18`, `opacity: 0.55`, laid on the band's centre line. Says *follow this line*.
+  3. **Arrows** (`.arrow-head`) — one per ~95px of path length (min 2), a colored triangle `-5,-6 9,0 -5,6` rotated to the path tangent, with a 2px white outline so it stays legible on top of the band. Says *this way*.
+- Arrow positions are **snapped to the dot period** (`Math.round(t / DOT_PERIOD) * DOT_PERIOD`) so each arrow lands exactly where a dot would be and replaces it, instead of half-overlapping one and turning into a smudge. `DOT_PERIOD` lives in `app.js` and drives the dasharray, so the two can't drift apart.
+- At each stroke start: colored dot (r=11, 2px white ring) with a pulsing scale animation (1 ↔ 1.25, 1.4s ease-in-out infinite) + a white numbered label (14px bold). Kept small deliberately — at r=16 the marker covered the opening curve of the very glyph the child was about to trace.
 - Below the guide, the child draws on a canvas overlay (see Drawing Interaction).
 - Action bar (three buttons, 12px gap, centered):
-  - 🎬 "다시 보기" icon button — replay the stroke-order animation.
-  - 🧽 icon button — clear the canvas.
+  - 🎬 "다시 보기" — replay the stroke-order animation.
+  - 🧽 "지우기" — clear the canvas.
+  - 🔊 "들어보기" — speak the number's name.
   - Primary CTA "다 썼어요! ✨" (I'm done!) — pink→orange gradient.
+
+  Every icon button is **at least 60×60px and carries a visible text label** under the glyph (`.btn-icon` is a column flexbox, `min-width: 72px; min-height: 60px`). A bare 24px emoji in a 48px pill is both too small for a four-year-old's finger and unreadable as an instruction.
 
 #### 2d. Step 3 — 혼자쓰기 (Solo)
 - Canvas title: "🌟 이번엔 혼자서 써볼까요?" (Now let's try it alone).
 - Guide SVG: **very faint outline only** (opacity 0.15, stroke-width 24, solid — no dots, no arrows).
 - Same canvas drawing overlay.
 - Action bar:
-  - 💡 icon button — replay the stroke-order animation as a hint.
-  - 🧽 icon button — clear.
+  - 💡 "힌트" — replay the stroke-order animation as a hint.
+  - 🧽 "지우기" — clear.
+  - 🔊 "들어보기" — speak the number's name.
   - Success CTA "완성했어요! 🎉" — green→blue gradient (`#6BCF7F → #4DABF7`), white.
 
 ### 3. Celebration Overlay
@@ -152,6 +156,16 @@ Every deferred callback goes through `later(fn, ms)`, which records the id in `S
   - Pointer capture means a stroke that wanders outside the canvas keeps tracking instead of being cut off, so no `mouseleave` fallback is needed.
 - **Rendering**: `lineWidth: 18, lineCap: round, lineJoin: round`, colored in the current number's accent color. A single-point tap draws a filled circle (r=9).
 - Redrawn from the strokes array on every point add and on resize.
+
+### Speech (Web Speech API)
+Hearing the sound of a glyph is the core of learning to read Korean, so it is a first-class feature rather than an accessibility afterthought.
+
+- `speak(text, el)` — `ko-KR`, **rate 0.85** (slow enough for a four-year-old to follow), **pitch 1.2** (warm, high). A Korean voice is picked from `speechSynthesis.getVoices()`, re-picked on `voiceschanged` since the list populates asynchronously. Any previous utterance is `cancel()`ed first so rapid tapping doesn't stack.
+- The element being read gets a `.speaking` highlight, cleared on `end`/`error` plus a 4s timer fallback for browsers that never fire those.
+- **Tappable:** the big number, the Sino-Korean name, the native name, the object caption, and a 🔊 "들어보기" button in every step's action bar.
+- Counts are spoken with the **counter form**, not the numeral: "사과 세 개", never "사과 삼개". That is what `counter` in the number data is for.
+- Entering a number speaks its name once; moving between steps does not repeat it. Going home cancels any speech in flight.
+- Everything degrades silently where `speechSynthesis` is missing.
 
 ### Sound Feedback (Web Audio API)
 **Unlocking:** iOS Safari starts the `AudioContext` in `suspended` state and only honours `resume()` from inside a user gesture. `unlockAudio()` (init + `resume()` if suspended) is bound to `pointerdown`, `touchend`, `click` and `keydown` on `document` — permanently, not `once`, because the context can be re-suspended by a phone call or alarm. It is also called on stroke start and when opening a number.
@@ -350,8 +364,8 @@ cd hangulssugi
 python3 -m http.server 8000      # or: npx serve .
 # open http://localhost:8000
 ```
-Opening `index.html` straight off the filesystem also works. A server is only
-nicer because `localStorage` is then keyed to an origin rather than to the file path.
+Opening `index.html` straight off the filesystem also works. A server is only nicer
+because `localStorage` is then keyed to an origin rather than to the file path.
 
 ### On the web — GitHub Pages
 `.github/workflows/pages.yml` publishes the repository root on every push to the
@@ -367,15 +381,17 @@ triggers one by hand. The repository is public, so Pages is free.
 ```bash
 node tools/bundle.mjs        # -> dist/index.html
 ```
-Inlines both scripts into a single self-contained HTML file for cases where a
-repository or a web server is inconvenient — sending the app to someone directly,
-dropping it on a tablet, attaching it to a wiki page, or publishing it as a
-Claude Artifact. `dist/` is git-ignored; regenerate it rather than committing it.
+Inlines both scripts into a single self-contained HTML file for cases where a repository
+or a web server is inconvenient — sending the app to someone directly, dropping it on a
+tablet, attaching it to a wiki page, or publishing it as a Claude Artifact. `dist/` is
+git-ignored; regenerate it rather than committing it.
 
 ### Device notes
 - Designed for **landscape tablet**; it collapses to a stacked layout at aspect ratio ≤ 1.
 - On iPad, *Share → Add to Home Screen* gives a full-screen, chrome-free launcher.
 - Sound needs one tap anywhere first — iOS Safari only unlocks audio inside a user gesture.
+- Speech uses the Web Speech API and needs a Korean voice installed; without one the app
+  stays silent but fully usable.
 
 ## Recommended Implementation Notes
 
@@ -383,7 +399,7 @@ Claude Artifact. `dist/` is git-ignored; regenerate it rather than committing it
 2. **Stroke-path playback**: the SVG stroke-dashoffset trick doesn't have a 1:1 equivalent on all platforms. In React Native SVG, animate `strokeDashoffset` via `Animated`. In SwiftUI, use `Path.trimmedPath(from:0, to: animatedProgress)`. In Flutter, use `PathMetric.extractPath(0, length * progress)`.
 3. **Do not "grade" the child's writing.** The prototype intentionally accepts any drawing above a minimal effort threshold — young children will not produce a shape-matching trace, and strict validation will demoralize them. Preserve this.
 4. **Audio in production**: swap synthesized tones for short (100–400ms) recorded WAV/AAC files with the same emotional shape (gentle tap, ascending arpeggio for success, brighter multi-note fanfare for full completion).
-5. **Accessibility**: the current prototype does not include screen-reader labels or reduced-motion support — add both in production. VoiceOver labels for each number card (e.g. "숫자 3, 사과 3개, 별 두 개 획득"), and honor `prefers-reduced-motion` by disabling the wobble/pulse loops and the confetti.
+5. **Accessibility**: implemented, not deferred. Number cards are real `<button>`s inside a `role="list"` with labels like "숫자 3, 삼 또는 셋, 사과 세 개, 별 0개 모음"; their decorative innards are `aria-hidden`. Every icon button has an `aria-label`, and focus rings (`:focus-visible`, 4px `#A9C7FF`) are visible on cards and buttons. `prefers-reduced-motion: reduce` disables the pulse/wobble loops, collapses entrance animations to 0.01ms, and skips confetti entirely — but **keeps the stroke-order animation**, which is instruction rather than decoration.
 6. **Portrait mode**: the prototype gracefully collapses to a stacked layout when aspect ratio ≤ 1. Verify this on your target device sizes; the design is primarily intended for landscape iPad.
 
 
@@ -407,30 +423,32 @@ Claude Artifact. `dist/` is git-ignored; regenerate it rather than committing it
 - **Optical kerning** via per-band ink profiles, so 17 and 19 no longer look spaced apart.
 - **Stroke palette darkened one step.** Every accent now clears 3:1 against the canvas guide background; the worst offender, `#FFD93D` on 3 and 13, measured 1.25:1 and is now `#C07E00` at 3.07:1. Card pastels are untouched.
 
-### Stage C: trace-guide rendering fixes
-- **The "dotted" trace guide was never dotted.** `stroke-dasharray: 6 10` on a 24-thick
-  round-capped stroke paints 6 + 24 = 30 units per 16-unit period, so every gap was
-  filled by the caps and Step 2 rendered as a solid silhouette — visually identical to
-  Step 1 and with no line to follow. Replaced by the two-layer worksheet guide
-  (faint full-width body + thin dotted centreline) described above.
-- **Stroke 1's start marker was invisible on 4, 5, 14 and 15.** Both strokes of 4 and 5
-  start at the same point, so the later marker sat exactly on top of the earlier one and
-  the child was shown a "2" with no "1" anywhere. Colliding markers now slide forward
-  along their own stroke until they clear.
-- **Markers no longer dimmed by later strokes.** Guides and markers are drawn in two
-  passes, in both the trace guide and the stroke-order demo overlay; previously each
-  stroke was emitted as a body-plus-marker bundle, so stroke 2's translucent body
-  washed out stroke 1's number.
-- **Direction arrows made visible.** They were filled with the same accent color as the
-  stroke they sit on, which made them near-invisible; they are now white with a
-  2px accent outline.
-- **Single digits centred in their cell.** `compose()` only balanced multi-digit
-  numbers, so 1 (74 wide) sat 41 left / 85 right — noticeably shoved to one side.
-  Single digits now get the same optical centring; every glyph is symmetric in its cell.
+### Stage C: UI
+- **Trace guide split into three layers** (faint band / thin dotted centre line / direction arrows) instead of one thick dashed stroke, with arrow positions snapped to the dot period so they replace a dot rather than smudging over one. Start markers shrunk from r=16 to r=11 — the large marker was covering the opening of the glyph.
+- **Info panel's yellow box now sizes to its content** (was `flex: 1`, eating the entire panel), and it is only re-rendered when the number changes.
+- **Icon buttons are ≥60×60 with text labels** ("다시 보기", "지우기", "들어보기", "힌트").
+- **Both number readings shown** — Sino-Korean (삼) and native Korean (셋), each tappable.
+- **Objects de-duplicated**: 0 is now 달걀 rather than the ambiguous 알, and 5 / 17 / 19 were all stars — now 별 / 개미 / 체리. No emoji repeats across 0–20.
+- **Text-to-speech added** (`ko-KR`, rate 0.85, pitch 1.2) on the number, both names, the object caption, and a 🔊 button in every action bar.
+- **`prefers-reduced-motion` honoured** and aria-labels/focus rings added throughout. The stroke-order animation is deliberately exempt — it teaches, it doesn't decorate.
+- In step 1 the canvas reserves 68px at the bottom so the floating "다시 보기" button cannot overlap the glyph (visible on two-digit numbers).
 
-### Known gaps (unchanged)
-- No screen-reader labels and no `prefers-reduced-motion` handling — see
-  *Recommended Implementation Notes* §5.
-- At `opacity: 0.65`+ the trace guide's effective contrast against the canvas background
-  is ~2.0–2.7:1. The solid Step 1 stroke clears 3:1 for every accent; the deliberately
-  faded guides do not, and are treated as decorative.
+### Stage C follow-up: coincident stroke markers, glyph centring
+- **Stroke 1's start marker was invisible on 4, 5, 14 and 15.** Both strokes of 4 and of 5
+  begin at *exactly* the same coordinate (measured distance 0.0), so the marker drawn
+  second covered the first completely and the child was shown a "2" with no "1" anywhere
+  on screen. Shrinking the marker to r=11 narrowed the overlap but could not remove it.
+  `placeMarker()` now walks a colliding marker forward along its own path until it clears
+  the previous one — it stays on the correct stroke, so the meaning is unchanged.
+- **The stroke-order demo emitted each stroke as a path-plus-marker bundle**, so a later
+  stroke's opaque path painted over an earlier stroke's number. Paths are now laid down in
+  one pass and markers in a second, matching what the trace guide already did.
+- **Single digits are centred in their cell.** `compose()` only balanced multi-digit
+  numbers; 1 (74 wide) sat 41 left / 85 right, noticeably shoved to one side. Single digits
+  now get the same optical centring, so every glyph is symmetric in its cell.
+
+### Known gaps
+- Screen-reader coverage is partial: home cards and the main controls have labels, but the
+  canvas guide and the drawing surface are not described.
+- The faded trace guide's effective contrast against the canvas background is below 3:1 by
+  design; the solid Step 1 stroke clears 3:1 for every accent.

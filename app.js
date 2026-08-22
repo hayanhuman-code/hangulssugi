@@ -14,6 +14,8 @@ const STATE = {
   timers: [],            // 살아있는 setTimeout id 전부
   demoPlaying: false,
   demoToken: 0,          // 취소된 데모의 뒤늦은 콜백을 무시하기 위한 토큰
+  spokenFor: null,       // 이름을 읽어준 숫자 (단계 이동 때 반복 방지)
+  infoFor: null,         // 정보 패널을 그려둔 숫자 (단계 이동 때 재렌더 방지)
 };
 
 // ---------- 타이머 추적 ----------
@@ -31,6 +33,62 @@ function clearTimers() {
   STATE.timers = [];
 }
 
+// ---------- 움직임 줄이기 ----------
+function reducedMotion() {
+  return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// ---------- 읽어주기 (Web Speech API) ----------
+// 한글 학습에서 소릿값은 핵심이라 글자·이름·단어를 눌러 들을 수 있게 한다.
+const TTS = { voice: null, ready: false };
+
+function pickKoreanVoice() {
+  if (!('speechSynthesis' in window)) return;
+  const voices = window.speechSynthesis.getVoices() || [];
+  TTS.voice = voices.find(v => v.lang === 'ko-KR') ||
+              voices.find(v => (v.lang || '').toLowerCase().indexOf('ko') === 0) || null;
+  TTS.ready = voices.length > 0;
+}
+
+function speak(text, el) {
+  if (!text || !('speechSynthesis' in window)) return;
+  const synth = window.speechSynthesis;
+  synth.cancel();                       // 연타해도 겹쳐 읽지 않게
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ko-KR';
+  u.rate = 0.85;                        // 4세가 따라올 수 있는 속도
+  u.pitch = 1.2;                        // 부드럽고 높은 톤
+  if (TTS.voice) u.voice = TTS.voice;
+  if (el) {
+    el.classList.add('speaking');
+    const off = () => el.classList.remove('speaking');
+    u.onend = off; u.onerror = off;
+    later(off, 4000);                   // 이벤트가 안 오는 브라우저 대비
+  }
+  try { synth.speak(u); } catch (e) { /* 지원 안 하면 조용히 넘어간다 */ }
+}
+
+// 버튼에서 부르는 진입점 (텍스트는 STATE에서 그때그때 만든다)
+function speakNumber(kind) {
+  const data = window.NUMBER_DATA[STATE.currentNumber];
+  if (!data) return;
+  const map = {
+    ko:     [data.ko, document.getElementById('infoKo')],
+    native: [data.native, document.getElementById('infoNative')],
+    num:    [data.ko, document.getElementById('infoNum')],
+    object: [objectPhrase(data), document.querySelector('.obj-caption')]
+  };
+  const pair = map[kind];
+  if (pair && pair[0]) { unlockAudio(); speak(pair[0], pair[1]); }
+}
+
+// "사과 3개"가 아니라 "사과 세 개"로 읽어준다.
+function objectPhrase(data) {
+  const n = data.object.count;
+  if (n === 0) return data.object.label + ' 하나도 없어요';
+  return data.object.label + ' ' + (data.counter || n) + ' 개';
+}
+
 // ---------- SVG 엘리먼트 헬퍼 ----------
 const SVG_NS = 'http://www.w3.org/2000/svg';
 function svgEl(tag, attrs) {
@@ -40,9 +98,9 @@ function svgEl(tag, attrs) {
 }
 
 // ---------- 획 시작 표식 위치 ----------
-// 4와 5는 두 획이 같은 점에서 시작한다. 표식을 좌표 그대로 찍으면 나중에 그린
-// 2번이 1번을 완전히 덮어, 아이 화면에는 "2"만 남고 1번 획의 시작점이 사라진다.
-// 겹치는 표식은 자기 획을 따라 조금 밀어서 둘 다 보이게 한다 — 여전히 같은 획 위이므로
+// 4와 5는 두 획이 완전히 같은 점에서 시작한다(거리 0). 좌표 그대로 찍으면 나중에 그린
+// 2번 표식이 1번을 100% 덮어, 아이 화면에는 "2"만 남고 1번 획의 시작점이 사라진다.
+// 겹치는 표식은 자기 획을 따라 앞으로 밀어 둘 다 보이게 한다 — 여전히 같은 획 위이므로
 // 어느 획의 시작인지는 그대로 읽힌다.
 function placeMarker(pathEl, start, placed, minSep) {
   const clash = q => placed.some(m => Math.hypot(m.x - q.x, m.y - q.y) < minSep);
@@ -105,16 +163,21 @@ function renderHome() {
   for (let n = 0; n <= 20; n++) {
     const data = window.NUMBER_DATA[n];
     const stars = STATE.progress[n] || 0;
-    const card = document.createElement('div');
+    const card = document.createElement('button');
+    card.type = 'button';
     card.className = 'number-card';
+    card.setAttribute('role', 'listitem');
     card.style.background = `linear-gradient(135deg, ${data.bgColor} 0%, white 100%)`;
     card.style.borderColor = stars > 0 ? data.color : 'transparent';
+    card.setAttribute('aria-label',
+      `숫자 ${n}, ${data.ko}${data.native ? ' 또는 ' + data.native : ''}, ` +
+      `${objectPhrase(data)}, 별 ${stars}개 모음`);
     card.innerHTML = `
-      <div class="card-stars">
+      <div class="card-stars" aria-hidden="true">
         ${[0,1,2].map(i => `<span class="star ${i<stars?'':'empty'}">${i<stars?'⭐':'☆'}</span>`).join('')}
       </div>
-      <div class="num" style="color: ${data.color}">${n}</div>
-      <div class="ko">${data.ko}</div>
+      <div class="num" style="color: ${data.color}" aria-hidden="true">${n}</div>
+      <div class="ko" aria-hidden="true">${data.ko}</div>
     `;
     card.addEventListener('click', () => { sfxTap(); openPractice(n); });
     grid.appendChild(card);
@@ -147,9 +210,54 @@ function goHome() {
   sfxTap();
   clearTimers();
   stopStrokeDemo();
+  STATE.spokenFor = null;
+  STATE.infoFor = null;
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   document.getElementById('practice').classList.remove('active');
   document.getElementById('home').style.display = 'flex';
   renderHome();
+}
+
+// ---------- 정보 패널 ----------
+function renderInfoPanel(data, num) {
+  const numEl = document.getElementById('infoNum');
+  numEl.textContent = num;
+  numEl.style.color = data.color;
+  numEl.setAttribute('aria-label', `숫자 ${num}, ${data.ko}. 눌러서 소리 듣기`);
+  const koEl = document.getElementById('infoKo');
+  koEl.textContent = data.ko;
+  koEl.setAttribute('aria-label', `${data.ko}. 눌러서 소리 듣기`);
+  const natEl = document.getElementById('infoNative');
+  natEl.textContent = data.native || '';
+  natEl.style.display = data.native ? '' : 'none';
+  natEl.setAttribute('aria-label', `${data.native}. 눌러서 소리 듣기`);
+  document.getElementById('infoEn').textContent = data.en;
+
+  const objs = document.getElementById('infoObjects');
+  objs.classList.toggle('zero', num === 0);
+  objs.innerHTML = '';
+  const reduce = reducedMotion();
+  if (num === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'obj-caption';
+    empty.textContent = '텅 비었어요! 하나도 없어요 😊';
+    objs.appendChild(empty);
+  } else {
+    for (let i = 0; i < num; i++) {
+      const e = document.createElement('span');
+      e.className = 'emoji';
+      e.textContent = data.object.emoji;
+      if (!reduce) e.style.animationDelay = (i * 0.05) + 's';
+      objs.appendChild(e);
+    }
+  }
+  const caption = document.createElement('button');
+  caption.type = 'button';
+  caption.className = 'obj-caption speakable';
+  caption.textContent = (num === 0 ? `${data.object.label} 0개` : `${data.object.label} ${num}개`) + ' 🔊';
+  caption.setAttribute('aria-label', `${objectPhrase(data)}. 눌러서 소리 듣기`);
+  caption.addEventListener('click', () => speakNumber('object'));
+  objs.appendChild(caption);
 }
 
 // ---------- 연습 화면 렌더링 ----------
@@ -157,34 +265,8 @@ function renderPractice() {
   const num = STATE.currentNumber;
   const data = window.NUMBER_DATA[num];
 
-  // 정보 패널
-  document.getElementById('infoNum').textContent = num;
-  document.getElementById('infoNum').style.color = data.color;
-  document.getElementById('infoKo').textContent = data.ko;
-  document.getElementById('infoEn').textContent = data.en;
-
-  const objs = document.getElementById('infoObjects');
-  objs.classList.toggle('zero', num === 0);
-  if (num === 0) {
-    objs.innerHTML = '<span>텅 비었어요! 하나도 없어요 😊</span>';
-  } else {
-    objs.innerHTML = '';
-    for (let i = 0; i < num; i++) {
-      const e = document.createElement('span');
-      e.className = 'emoji';
-      e.textContent = data.object.emoji;
-      e.style.animationDelay = (i * 0.06) + 's';
-      objs.appendChild(e);
-    }
-    const label = document.createElement('div');
-    label.style.width = '100%';
-    label.style.textAlign = 'center';
-    label.style.marginTop = '8px';
-    label.style.fontSize = '22px';
-    label.style.color = '#6b6b8a';
-    label.textContent = `${data.object.label} ${num}개`;
-    objs.appendChild(label);
-  }
+  // 정보 패널 — 숫자가 바뀔 때만 다시 그린다
+  if (STATE.infoFor !== num) { STATE.infoFor = num; renderInfoPanel(data, num); }
 
   // 단계 표시
   document.querySelectorAll('.step-dot').forEach((el, i) => {
@@ -194,6 +276,12 @@ function renderPractice() {
 
   // 단계별 캔버스 세팅
   renderStep();
+
+  // 새 숫자로 들어왔으면 이름을 한 번 읽어준다 (단계 이동 때는 반복하지 않음)
+  if (STATE.spokenFor !== num) {
+    STATE.spokenFor = num;
+    later(() => speakNumber('ko'), 250);
+  }
 }
 
 function renderStep() {
@@ -214,6 +302,7 @@ function renderStep() {
   stopStrokeDemo();
 
   STATE.strokes = [];
+  document.getElementById('canvasWrapper').classList.remove('with-replay');
   clearCanvas();
   resizeCanvas();
 
@@ -222,27 +311,38 @@ function renderStep() {
     renderStepView(svg, data);
     // 진입하자마자 획순을 한 번 보여준다 (버튼이 글자를 가리지 않도록).
     demoBtn.classList.remove('hidden');
+    document.getElementById('canvasWrapper').classList.add('with-replay');
     later(() => playStrokeDemo(true), 350);
     actionBar.innerHTML = `
-      <button class="btn btn-primary" onclick="nextStep()">따라 써볼까요? →</button>
+      <button type="button" class="btn btn-icon" onclick="speakNumber('ko')" aria-label="숫자 이름 들려주기">
+        <span class="ico">🔊</span><span class="lbl">들어보기</span></button>
+      <button type="button" class="btn btn-primary" onclick="nextStep()">따라 써볼까요? →</button>
     `;
   } else if (STATE.step === 1) {
     titleEl.innerHTML = '✏️ 점선을 따라 손가락으로 그려보세요';
     renderStepTrace(svg, data);
     demoBtn.classList.add('hidden');
     actionBar.innerHTML = `
-      <button class="btn btn-icon" onclick="playStrokeDemo()" title="다시 보기">🎬</button>
-      <button class="btn btn-icon" onclick="clearAll()" title="지우기">🧽</button>
-      <button class="btn btn-primary" onclick="checkTrace()">다 썼어요! ✨</button>
+      <button type="button" class="btn btn-icon" onclick="playStrokeDemo()" aria-label="쓰는 순서 다시 보기">
+        <span class="ico">🎬</span><span class="lbl">다시 보기</span></button>
+      <button type="button" class="btn btn-icon" onclick="clearAll()" aria-label="쓴 것 지우기">
+        <span class="ico">🧽</span><span class="lbl">지우기</span></button>
+      <button type="button" class="btn btn-icon" onclick="speakNumber('ko')" aria-label="숫자 이름 들려주기">
+        <span class="ico">🔊</span><span class="lbl">들어보기</span></button>
+      <button type="button" class="btn btn-primary" onclick="checkTrace()">다 썼어요! ✨</button>
     `;
   } else if (STATE.step === 2) {
     titleEl.innerHTML = '🌟 이번엔 혼자서 써볼까요?';
     renderStepSolo(svg, data);
     demoBtn.classList.add('hidden');
     actionBar.innerHTML = `
-      <button class="btn btn-icon" onclick="playStrokeDemo()" title="힌트">💡</button>
-      <button class="btn btn-icon" onclick="clearAll()" title="지우기">🧽</button>
-      <button class="btn btn-success" onclick="finishPractice()">완성했어요! 🎉</button>
+      <button type="button" class="btn btn-icon" onclick="playStrokeDemo()" aria-label="쓰는 순서 힌트 보기">
+        <span class="ico">💡</span><span class="lbl">힌트</span></button>
+      <button type="button" class="btn btn-icon" onclick="clearAll()" aria-label="쓴 것 지우기">
+        <span class="ico">🧽</span><span class="lbl">지우기</span></button>
+      <button type="button" class="btn btn-icon" onclick="speakNumber('ko')" aria-label="숫자 이름 들려주기">
+        <span class="ico">🔊</span><span class="lbl">들어보기</span></button>
+      <button type="button" class="btn btn-success" onclick="finishPractice()">완성했어요! 🎉</button>
     `;
   }
 }
@@ -260,6 +360,9 @@ function prevStep() {
 
 // ---------- 1단계: 보기 (정적 숫자 + 획순 데모) ----------
 function strokeW(data) { return data.strokeWidth || 30; }
+
+// 점선 가이드의 점 간격. 화살표를 이 주기에 맞춰 놓아야 점 위에 겹쳐 뭉개지지 않는다.
+const DOT_PERIOD = 18;
 
 function renderStepView(svg, data) {
   svg.innerHTML = '';
@@ -292,8 +395,8 @@ function playStrokeDemo(auto) {
   guide.classList.add('dimmed');    // 가이드는 '흐려질' 뿐, 파괴되지 않는다
   if (btn) btn.disabled = true;
 
-  // 1차: 애니메이션되는 획. 2차: 그 위에 올라가는 시작점 표식 — 순서를 섞으면
-  // 나중 획이 앞 획의 번호를 덮는다.
+  // 획을 먼저 전부 깔고 표식을 나중에 올린다. 한 획씩 "획+표식" 묶음으로 그리면
+  // 나중 획이 앞 획의 번호를 덮는다 — 4·5처럼 획이 겹치는 숫자에서 실제로 그랬다.
   let cumulativeDelay = 0;
   const paths = [];
   data.strokes.forEach(stroke => {
@@ -314,6 +417,7 @@ function playStrokeDemo(auto) {
     cumulativeDelay += dur + 0.3;
   });
 
+  // 시작점 표식 — 같은 좌표에서 시작하는 획끼리 겹치지 않게 배치
   const marks = [];
   data.strokes.forEach((stroke, i) => {
     const m = placeMarker(paths[i], stroke.start, marks, 32);
@@ -348,65 +452,71 @@ function stopStrokeDemo() {
   if (btn) btn.disabled = false;
 }
 
-// ---------- 2단계: 따라쓰기 (점선 + 시작점 + 화살표) ----------
+// ---------- 2단계: 따라쓰기 (연한 띠 + 가는 점선 + 화살표) ----------
+// 교재의 점선 칸처럼 세 겹으로 나눈다. 예전엔 두께 24짜리 굵은 점선 하나였는데,
+// 점선이 아니라 울퉁불퉁한 덩어리로 보이고 그 위의 화살표가 묻혔다.
 function renderStepTrace(svg, data) {
   svg.innerHTML = '';
-  const sw = strokeW(data) * 0.8;
-  const paths = [];
+  const sw = strokeW(data);
 
-  // 1차: 가이드 레이어. 획을 하나씩 "몸통+점선+표식" 묶음으로 그리면 나중 획의
-  // 반투명 몸통이 앞 획의 번호 표식을 덮어 흐릿하게 만든다. 그래서 가이드를 먼저 전부 깔고,
-  // 표식은 2차에서 맨 위에 올린다.
+  // ① 어디를 지나가는지 보여주는 넓고 연한 띠
   data.strokes.forEach(s => {
-    // (1) 연한 굵은 몸통 — 글자 모양과 손가락이 지나갈 폭을 보여준다.
-    const p = svgEl('path', {
-      d: s.d, class: 'stroke-outline stroke-body',
-      stroke: data.color, 'stroke-width': sw
-    });
-    svg.appendChild(p);
-    paths.push(p);
-
-    // (2) 가는 점선 중심선 — 실제로 따라갈 선. 대시가 획 두께보다 길어야 점선으로 읽힌다.
-    const dash = round1(sw * 0.42);
     svg.appendChild(svgEl('path', {
-      d: s.d, class: 'stroke-outline stroke-dashed',
-      stroke: data.color, 'stroke-width': round1(sw * 0.17),
-      'stroke-dasharray': dash + ' ' + dash
+      d: s.d, class: 'stroke-outline guide-band',
+      stroke: data.color, 'stroke-width': sw
     }));
-
-    // (3) 진행 방향 화살표
-    addArrowsAlongPath(svg, p, data.color);
   });
 
-  // 2차: 시작점 표식 — 같은 좌표에서 시작하는 획끼리 겹치지 않게 배치한다.
+  // ② 그 위에 얹는 가는 점선 (획의 중심선)
+  data.strokes.forEach(s => {
+    svg.appendChild(svgEl('path', {
+      d: s.d, class: 'stroke-outline guide-dots',
+      stroke: data.color, 'stroke-width': 7,
+      'stroke-dasharray': '0.1 ' + DOT_PERIOD
+    }));
+  });
+
+  // ③ 방향 화살표 — 띠 위에 또렷하게
+  data.strokes.forEach(s => {
+    const probe = svgEl('path', { d: s.d, fill: 'none', stroke: 'none' });
+    svg.appendChild(probe);
+    addArrowsAlongPath(svg, probe, data.color);
+    probe.remove();
+  });
+
+  // ④ 시작점 + 획 번호 (맨 위) — 같은 좌표에서 시작하는 획끼리 겹치지 않게 배치
   const marks = [];
   data.strokes.forEach((s, i) => {
-    const m = placeMarker(paths[i], s.start, marks, 36);
+    const probe = svgEl('path', { d: s.d, fill: 'none', stroke: 'none' });
+    svg.appendChild(probe);
+    const m = placeMarker(probe, s.start, marks, 26);
+    probe.remove();
     svg.appendChild(svgEl('circle', {
-      cx: m.x, cy: m.y, r: 16, fill: data.color, class: 'start-dot'
+      cx: m.x, cy: m.y, r: 11, fill: data.color,
+      stroke: 'white', 'stroke-width': 2, class: 'start-dot'
     }));
-    const numLabel = svgEl('text', {
-      x: m.x, y: m.y + 6, 'text-anchor': 'middle',
-      'font-size': 18, 'font-weight': 'bold',
-      fill: 'white', 'font-family': 'Jua, sans-serif'
+    const label = svgEl('text', {
+      x: m.x, y: m.y + 5, 'text-anchor': 'middle',
+      'font-size': 14, 'font-weight': 'bold', fill: 'white',
+      'font-family': 'Jua, sans-serif'
     });
-    numLabel.textContent = (i + 1);
-    svg.appendChild(numLabel);
+    label.textContent = (i + 1);
+    svg.appendChild(label);
   });
 }
-function round1(v) { return Math.round(v * 10) / 10; }
 function addArrowsAlongPath(svg, pathEl, color) {
   const len = pathEl.getTotalLength();
-  const numArrows = Math.max(2, Math.floor(len / 130));
+  const numArrows = Math.max(2, Math.floor(len / 95));
   for (let i = 1; i <= numArrows; i++) {
-    const t = (i / (numArrows + 1)) * len;
+    // 점선의 점이 놓이는 자리에 정확히 얹어, 화살표가 점을 덮어 대신하게 한다
+    const t = Math.round((i / (numArrows + 1)) * len / DOT_PERIOD) * DOT_PERIOD;
     const p1 = pathEl.getPointAtLength(t);
     const p2 = pathEl.getPointAtLength(Math.min(len, t + 8));
     const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
-    // 획과 같은 색으로 칠하면 획 위에서 사라진다. 흰 삼각형 + 색 테두리라야 읽힌다.
+    // 흰 테두리를 둘러 연한 띠 위에서도 화살표가 묻히지 않게 한다
     svg.appendChild(svgEl('polygon', {
-      points: '-7,-8 11,0 -7,8',
-      fill: 'white', stroke: color, 'stroke-width': 2,
+      points: '-5,-6 9,0 -5,6',
+      fill: color, stroke: 'white', 'stroke-width': 2,
       'stroke-linejoin': 'round',
       transform: `translate(${p1.x},${p1.y}) rotate(${angle})`,
       class: 'arrow-head'
@@ -585,6 +695,8 @@ function showCelebration(stars, isFinal) {
     nextBtn.onclick = () => { closeCelebration(); STATE.step = 2; renderPractice(); };
   }
 
+  later(() => speak(isFinal ? '참 잘했어요' : '따라쓰기 성공'), 300);
+
   // 컨페티
   launchConfetti();
 }
@@ -603,6 +715,7 @@ function nextNumber() {
 
 // 컨페티: 이모지가 위에서 떨어짐
 function launchConfetti() {
+  if (reducedMotion()) return;      // 움직임 줄이기 설정이면 컨페티 생략
   const emojis = ['🎉','⭐','✨','🌈','🎊','💖','🌟','🎁'];
   for (let i = 0; i < 24; i++) {
     later(() => {
@@ -628,6 +741,17 @@ window.addEventListener('load', () => {
   canvas.addEventListener('pointerup', endDraw);
   canvas.addEventListener('pointercancel', endDraw);
 
+  // 읽어주기 음성 목록은 비동기로 채워진다
+  if ('speechSynthesis' in window) {
+    pickKoreanVoice();
+    window.speechSynthesis.addEventListener('voiceschanged', pickKoreanVoice);
+  }
+
+  // 정보 패널의 눌러 듣기
+  document.getElementById('infoNum').addEventListener('click', () => speakNumber('num'));
+  document.getElementById('infoKo').addEventListener('click', () => speakNumber('ko'));
+  document.getElementById('infoNative').addEventListener('click', () => speakNumber('native'));
+
   // 첫 사용자 제스처에서 오디오 잠금 해제 (iOS Safari 무음 방지)
   ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => {
     document.addEventListener(ev, unlockAudio, { passive: true });
@@ -642,6 +766,8 @@ window.nextStep = nextStep;
 window.prevStep = prevStep;
 window.playStrokeDemo = playStrokeDemo;
 window.stopStrokeDemo = stopStrokeDemo;
+window.speakNumber = speakNumber;
+window.speak = speak;
 window.clearAll = clearAll;
 window.checkTrace = checkTrace;
 window.finishPractice = finishPractice;
