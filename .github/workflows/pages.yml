@@ -1,7 +1,10 @@
 # 정적 웹앱을 GitHub Pages로 배포한다. 빌드 도구가 없으므로 저장소를 그대로 올린다.
-# configure-pages 의 enablement: true 가 Pages 자체를 켜 주므로 저장소 설정을
-# 손댈 필요가 없다. 이 값이 기본값(false)이면 Pages 가 꺼진 저장소에서
-# "Get Pages site failed ... Not Found" 로 죽는다.
+#
+# 최초 1회 저장소 Settings > Pages > Source 를 "GitHub Actions"로 바꿔야 한다.
+# 아래 enablement: true 는 액션이 Pages 를 대신 켜 보게 하지만, 워크플로의
+# GITHUB_TOKEN 에는 Pages 생성 권한이 없어("Resource not accessible by
+# integration") 실제로는 사람이 한 번 켜 줘야 한다. 켠 뒤로는 무시되는 값이므로
+# 권한이 있는 환경에서 그대로 동작하도록 남겨 둔다.
 name: Deploy to GitHub Pages
 
 on:
