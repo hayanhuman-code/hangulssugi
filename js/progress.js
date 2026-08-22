@@ -40,6 +40,8 @@
   function unlocked(tabKey, index) {
     if (index < HEAD_START) return true;
     var list = global.Curriculum.tab(tabKey).items;
+    // 부모가 직접 넣은 단어는 잠그지 않는다 — 넣자마자 쓸 수 있어야 의미가 있다
+    if (list[index] && list[index].custom) return true;
     return stars(tabKey, list[index - 1].id) > 0;
   }
 

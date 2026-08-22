@@ -107,6 +107,22 @@
     { key: 'word', label: '단어', icon: '🦋',   deep: '#A9640A', soft: '#FFEBCF', items: words,      layout: 'word' }
   ];
 
+  /* 부모가 넣은 단어를 목록 뒤에 붙인다. 교재 단어와 섞이지 않게 뒤에 두고,
+     custom 표시를 달아 잠금 규칙에서 빼 준다(부모가 넣은 건 바로 열려 있어야 한다). */
+  var builtinWords = words.slice();
+
+  function refreshWords() {
+    var extra = (global.CustomWords ? global.CustomWords.all() : []).map(function (c, i) {
+      return {
+        id: c.ch, ch: c.ch, name: c.ch, say: c.ch, word: c.ch,
+        emoji: c.emoji, index: builtinWords.length + i, custom: true
+      };
+    });
+    words.length = 0;
+    builtinWords.forEach(function (w) { words.push(w); });
+    extra.forEach(function (w) { words.push(w); });
+  }
+
   function tab(key) {
     for (var i = 0; i < tabs.length; i++) if (tabs[i].key === key) return tabs[i];
     return tabs[0];
@@ -118,5 +134,5 @@
     return null;
   }
 
-  global.Curriculum = { tabs: tabs, tab: tab, item: item };
+  global.Curriculum = { tabs: tabs, tab: tab, item: item, refreshWords: refreshWords };
 })(window);

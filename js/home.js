@@ -12,8 +12,100 @@
   function init() {
     el.tabs = document.getElementById('tabs');
     el.grid = document.getElementById('grid');
+    el.settings = document.getElementById('btn-settings');
+    if (el.settings) {
+      el.settings.innerHTML = global.Icons.gear(30);
+      el.settings.addEventListener('click', openSettings);
+    }
+    if (global.Curriculum.refreshWords) global.Curriculum.refreshWords();
     renderTabs();
     render();
+  }
+
+  /* ── 설정 — 부모가 단어를 직접 넣는 곳 ─────────────────── */
+
+  function openSettings() {
+    global.Sound.chime.pop();
+    var overlay = document.getElementById('overlay');
+    var picked = global.CustomWords.emoji[0];
+
+    function draw() {
+      var saved = global.CustomWords.all();
+      overlay.innerHTML =
+        '<div class="sheet" role="dialog" aria-label="단어 넣기">' +
+          '<div class="sheet-head">' +
+            '<div class="sheet-title">우리 아이 단어 넣기</div>' +
+            '<div class="ghost-btn press" id="sheet-close">닫기</div>' +
+          '</div>' +
+          '<div class="sheet-hint">아이 이름이나 가족 이름을 넣어 보세요. ' +
+            '한글 ' + global.CustomWords.maxLen + '글자까지 넣을 수 있어요.</div>' +
+          '<div class="sheet-row">' +
+            '<input id="sheet-input" type="text" maxlength="' + global.CustomWords.maxLen + '" ' +
+              'inputmode="text" autocomplete="off" placeholder="예: 지우" aria-label="넣을 단어">' +
+            '<div class="cta press" id="sheet-add">넣기</div>' +
+          '</div>' +
+          '<div class="sheet-emoji" id="sheet-emoji">' +
+            global.CustomWords.emoji.map(function (e) {
+              return '<div class="pick' + (e === picked ? ' on' : '') + '" data-emoji="' + e + '" ' +
+                     'role="button" aria-label="그림 ' + e + '">' + e + '</div>';
+            }).join('') +
+          '</div>' +
+          '<div class="sheet-msg" id="sheet-msg" role="status"></div>' +
+          '<div class="sheet-list">' +
+            (saved.length
+              ? saved.map(function (c) {
+                  return '<div class="saved"><span class="e">' + c.emoji + '</span>' +
+                         '<span class="w">' + c.ch + '</span>' +
+                         '<span class="del press" data-del="' + c.ch + '" role="button" ' +
+                         'aria-label="' + c.ch + ' 지우기">지우기</span></div>';
+                }).join('')
+              : '<div class="empty">아직 넣은 단어가 없어요.</div>') +
+          '</div>' +
+        '</div>';
+
+      var input = document.getElementById('sheet-input');
+      var msg = document.getElementById('sheet-msg');
+
+      document.getElementById('sheet-close').addEventListener('click', close);
+      document.getElementById('sheet-emoji').addEventListener('click', function (e) {
+        var t = e.target.closest('[data-emoji]');
+        if (!t) return;
+        picked = t.getAttribute('data-emoji');
+        [].forEach.call(this.children, function (c) { c.classList.toggle('on', c === t); });
+      });
+      document.getElementById('sheet-add').addEventListener('click', submit);
+      input.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); });
+      [].forEach.call(overlay.querySelectorAll('[data-del]'), function (b) {
+        b.addEventListener('click', function () {
+          global.CustomWords.remove(b.getAttribute('data-del'));
+          global.Sound.chime.pop();
+          draw();
+          render();
+        });
+      });
+      input.focus();
+
+      function submit() {
+        var res = global.CustomWords.add(input.value, picked);
+        if (!res.ok) { msg.textContent = res.reason; msg.className = 'sheet-msg bad'; return; }
+        global.Sound.chime.star();
+        draw();
+        render();
+        document.getElementById('sheet-msg').textContent = '"' + res.word + '" 을(를) 넣었어요.';
+        document.getElementById('sheet-msg').className = 'sheet-msg good';
+      }
+    }
+
+    function close() {
+      overlay.classList.remove('on');
+      overlay.innerHTML = '';
+      document.removeEventListener('keydown', onEsc);
+    }
+    function onEsc(e) { if (e.key === 'Escape') close(); }
+
+    draw();
+    overlay.classList.add('on');
+    document.addEventListener('keydown', onEsc);
   }
 
   function renderTabs() {

@@ -7,6 +7,11 @@
   }
 
   global.Icons = {
+    gear: function (s) {
+      return svg(s || 30, '<circle cx="24" cy="24" r="7" stroke="#7A6C5A" stroke-width="5"/>' +
+        '<path d="M24 6v6M24 36v6M42 24h-6M12 24H6M36.7 11.3l-4.2 4.2M15.5 32.5l-4.2 4.2M36.7 36.7l-4.2-4.2M15.5 15.5l-4.2-4.2" ' +
+        'stroke="#7A6C5A" stroke-width="5" stroke-linecap="round"/>');
+    },
     back: function (s) {
       return svg(s || 42, '<path d="M29 12L17 24l12 12" stroke="#7A6C5A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>');
     },
