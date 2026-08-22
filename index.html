@@ -64,6 +64,7 @@
   }
   .number-card {
     background: white; border-radius: 24px; padding: 12px;
+    font-family: inherit; color: inherit; text-align: center;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     cursor: pointer; position: relative;
     box-shadow: 0 6px 0 rgba(0,0,0,0.08), 0 8px 20px rgba(0,0,0,0.06);
@@ -74,6 +75,10 @@
   .number-card:active {
     transform: translateY(4px);
     box-shadow: 0 2px 0 rgba(0,0,0,0.08);
+  }
+  .number-card:focus-visible { outline: 4px solid #A9C7FF; outline-offset: 3px; }
+  .btn:focus-visible, .btn-back:focus-visible, .demo-play-btn:focus-visible {
+    outline: 4px solid #A9C7FF; outline-offset: 3px;
   }
   .number-card .num {
     font-size: 52px; font-weight: 700; line-height: 1;
@@ -142,26 +147,49 @@
   .info-panel {
     background: white; border-radius: 32px; padding: 20px;
     display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px;
     box-shadow: 0 8px 0 rgba(0,0,0,0.06);
     overflow: hidden;
   }
+  /* 눌러서 소리로 들을 수 있는 요소 */
+  .speakable {
+    border: none; background: transparent; font-family: inherit; color: inherit;
+    cursor: pointer; padding: 2px 10px; border-radius: 16px;
+    position: relative; transition: background 0.15s, transform 0.1s;
+  }
+  .speakable:hover { background: #F4F4FB; }
+  .speakable:active { transform: scale(0.96); background: #ECECF8; }
+  .speakable:focus-visible { outline: 4px solid #A9C7FF; outline-offset: 2px; }
+  .speakable.speaking { background: #FFF3C4; }
+  .info-objects .obj-caption {
+    width: 100%; text-align: center; margin-top: 6px;
+    font-size: 21px; color: #6b6b8a;
+  }
   .info-num {
-    font-size: 160px; font-weight: 700; line-height: 0.9;
+    font-size: 150px; font-weight: 700; line-height: 0.9;
     margin: 0;
   }
-  .info-ko {
-    font-size: 40px; margin: 4px 0 12px;
-    color: #6b6b8a;
+  .info-names {
+    display: flex; align-items: baseline; gap: 10px;
+    margin: 2px 0 6px;
+  }
+  .info-ko { font-size: 40px; color: #6b6b8a; }
+  .info-native {
+    font-size: 30px; color: #7a7a9c;
+  }
+  .info-native::before {
+    content: '·'; margin-right: 10px; color: #d0d0e0;
   }
   .info-en {
-    font-size: 20px; color: #b8b8d0; letter-spacing: 1px;
-    margin-bottom: 12px; text-transform: uppercase;
+    font-size: 18px; color: #b8b8d0; letter-spacing: 1px;
+    margin-bottom: 10px; text-transform: uppercase;
   }
+  /* 노란 상자는 내용 높이에만 맞춘다 (예전엔 flex:1로 패널을 다 먹었다) */
   .info-objects {
-    background: #FFF9DC; border-radius: 20px; padding: 14px;
-    width: 100%; flex: 1;
+    background: #FFF9DC; border-radius: 20px; padding: 12px 14px;
+    width: 100%; flex: 0 0 auto; max-height: 100%;
     display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
-    gap: 4px; min-height: 0;
+    gap: 4px; overflow: hidden;
     align-content: center;
   }
   .info-objects .emoji {
@@ -200,6 +228,9 @@
   .canvas-wrapper svg, .canvas-wrapper canvas {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   }
+  /* "다시 보기" 버튼이 떠 있는 1단계에서는 글자가 버튼에 가리지 않도록
+     캔버스 아래쪽을 버튼 높이만큼 비운다. */
+  .canvas-wrapper.with-replay svg { height: calc(100% - 68px); }
   .canvas-wrapper canvas {
     touch-action: none;
     z-index: 2;
@@ -211,13 +242,15 @@
   }
   .guide-svg.dimmed { opacity: 0.18; }
 
-  /* 점선 스타일 */
+  /* 가이드 스타일 — 따라쓰기 가이드는 세 겹으로 분리한다.
+     ① 넓고 연한 띠(어디를 지날지)  ② 그 위 가는 점선(중심선)  ③ 방향 화살표 */
   .stroke-outline {
     fill: none; stroke-linecap: round; stroke-linejoin: round;
   }
-  .stroke-dashed {
-    stroke-dasharray: 6 10;
-    opacity: 0.65;
+  .guide-band { opacity: 0.15; }
+  .guide-dots {
+    stroke-linecap: round;
+    opacity: 0.55;   /* dasharray는 화살표 위치와 맞물려야 해서 JS에서 설정 */
   }
   .stroke-faint {
     opacity: 0.15;
@@ -271,9 +304,15 @@
     box-shadow: 0 4px 0 #4CAF60;
   }
   .btn-success:active { box-shadow: 0 2px 0 #4CAF60; }
+  /* 아이콘 버튼: 4세 손가락 기준 최소 터치 타깃 60x60, 라벨 병기 */
   .btn-icon {
-    padding: 12px 16px; font-size: 24px;
+    flex-direction: column; justify-content: center;
+    min-width: 72px; min-height: 60px;
+    padding: 8px 14px; gap: 1px;
   }
+  .btn-icon .ico { font-size: 25px; line-height: 1.1; }
+  .btn-icon .lbl { font-size: 14px; font-weight: 700; letter-spacing: -0.3px; }
+  .btn { min-height: 60px; }
 
   /* ---------- 완료 축하 오버레이 ---------- */
   .celebration {
@@ -328,6 +367,7 @@
   /* "다시 보기" 버튼 - 글자를 가리지 않도록 캔버스 하단 중앙 */
   .demo-play-btn {
     position: absolute; bottom: 14px; left: 50%;
+    min-height: 60px;
     transform: translateX(-50%);
     z-index: 5;
     background: white; border: none;
@@ -367,12 +407,29 @@
     100% { transform: translateX(0); opacity: 1; }
   }
 
+  /* 움직임 줄이기 설정 존중.
+     획순 데모(획이 그려지는 애니메이션)는 학습의 핵심이라 유지하고,
+     장식용 반복 애니메이션과 컨페티만 끈다. */
+  @media (prefers-reduced-motion: reduce) {
+    .start-dot, .arrow-head, .demo-play-btn, .celebration-emoji {
+      animation: none !important;
+    }
+    .info-objects .emoji, .celebration-card, .celebration-stars .star.show,
+    .encourage-badge {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+    }
+    .confetti { display: none; }
+    .number-card, .btn, .speakable { transition: none; }
+  }
+
   /* 반응형: 작은 태블릿 세로 */
   @media (max-aspect-ratio: 1/1) {
     .number-grid { grid-template-columns: repeat(5, 1fr); }
     .practice-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-    .info-num { font-size: 100px; }
-    .info-ko { font-size: 32px; }
+    .info-num { font-size: 92px; }
+    .info-ko { font-size: 30px; }
+    .info-native { font-size: 24px; }
   }
 </style>
 </head>
@@ -386,13 +443,13 @@
       <div class="home-subtitle">숫자를 골라볼까요?</div>
       <div class="stars-collected" id="totalStars">⭐ <span id="totalStarsNum">0</span></div>
     </div>
-    <div class="number-grid" id="numberGrid"></div>
+    <div class="number-grid" id="numberGrid" role="list" aria-label="연습할 숫자 고르기"></div>
   </div>
 
   <!-- 연습 화면 -->
   <div class="practice" id="practice">
     <div class="practice-header">
-      <button class="btn-back" onclick="goHome()">← 처음으로</button>
+      <button type="button" class="btn-back" onclick="goHome()" aria-label="처음 화면으로 돌아가기">← 처음으로</button>
       <div class="step-indicator" id="stepIndicator">
         <div class="step-dot" data-step="0"><span class="step-num">1</span><span>보기</span></div>
         <div class="step-dot" data-step="1"><span class="step-num">2</span><span>따라쓰기</span></div>
@@ -403,8 +460,11 @@
 
     <div class="practice-body">
       <div class="info-panel" id="infoPanel">
-        <div class="info-num" id="infoNum">0</div>
-        <div class="info-ko" id="infoKo">영</div>
+        <button type="button" class="info-num speakable" id="infoNum">0</button>
+        <div class="info-names">
+          <button type="button" class="info-ko speakable" id="infoKo">영</button>
+          <button type="button" class="info-native speakable" id="infoNative">하나</button>
+        </div>
         <div class="info-en" id="infoEn">zero</div>
         <div class="info-objects" id="infoObjects"></div>
       </div>
@@ -415,7 +475,8 @@
           <svg class="guide-svg" id="guideSvg" preserveAspectRatio="xMidYMid meet"></svg>
           <canvas id="drawCanvas"></canvas>
           <svg class="demo-svg" id="demoSvg" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
-          <button type="button" class="demo-play-btn" id="demoBtn" onclick="playStrokeDemo()">
+          <button type="button" class="demo-play-btn" id="demoBtn" onclick="playStrokeDemo()"
+                  aria-label="쓰는 순서 다시 보기">
             🎬 <span>다시 보기</span>
           </button>
         </div>
