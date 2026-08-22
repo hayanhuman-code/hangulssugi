@@ -368,22 +368,22 @@ Opening `index.html` straight off the filesystem also works. A server is only ni
 because `localStorage` is then keyed to an origin rather than to the file path.
 
 ### On the web — GitHub Pages
-`.github/workflows/pages.yml` publishes the repository root on every push to the
-default branch. **One manual step is required first, once:**
+Live at **https://hayanhuman-code.github.io/hangulssugi/**.
+
+`.github/workflows/pages.yml` publishes the repository root on every push to `main`.
+Pages is already enabled here, so deploys are unattended; to re-run one by hand, use
+*Actions → Deploy to GitHub Pages → Run workflow*. The repository is public, so Pages
+is free.
+
+**Forking this repo?** Pages has to be switched on once, by hand:
 
 > Settings → Pages → *Build and deployment* → **Source: GitHub Actions**
 
-The workflow asks `configure-pages` to enable Pages itself (`enablement: true`), but the
-automatic `GITHUB_TOKEN` is not permitted to create a Pages site — it fails with
+The workflow does ask `configure-pages` to enable Pages itself (`enablement: true`), but
+the automatic `GITHUB_TOKEN` is not permitted to create a Pages site — it fails with
 *"Create Pages site failed. Error: Resource not accessible by integration"*. Turning Pages
 on is an admin action and a workflow token cannot do it. Once it is on, `enablement: true`
-is a no-op and every later push deploys unattended.
-
-After that the app is live at `https://hayanhuman-code.github.io/hangulssugi/`. Re-run a
-deploy by hand from *Actions → Deploy to GitHub Pages → Run workflow*. The repository is
-public, so Pages is free.
-Re-runs are automatic on push; *Actions → Deploy to GitHub Pages → Run workflow*
-triggers one by hand. The repository is public, so Pages is free.
+is a no-op.
 
 ### As one file
 ```bash
