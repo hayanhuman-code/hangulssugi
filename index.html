@@ -204,7 +204,12 @@
     touch-action: none;
     z-index: 2;
   }
-  .guide-svg { z-index: 1; }
+  .guide-svg { z-index: 1; transition: opacity 0.25s ease; }
+  /* 데모는 가이드를 파괴하지 않고 별도 오버레이 레이어에서 재생한다 */
+  .demo-svg {
+    z-index: 3; pointer-events: none;
+  }
+  .guide-svg.dimmed { opacity: 0.18; }
 
   /* 점선 스타일 */
   .stroke-outline {
@@ -320,26 +325,32 @@
     100% { transform: translateY(120vh) rotate(720deg); opacity: 0; }
   }
 
-  /* 큰 버튼 - "쓰는 순서 보기" */
+  /* "다시 보기" 버튼 - 글자를 가리지 않도록 캔버스 하단 중앙 */
   .demo-play-btn {
-    position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
+    position: absolute; bottom: 14px; left: 50%;
+    transform: translateX(-50%);
     z-index: 5;
-    background: white;
-    padding: 20px 32px;
+    background: white; border: none;
+    padding: 14px 26px;
     border-radius: 999px;
-    font-size: 28px; font-weight: 700;
-    box-shadow: 0 6px 0 rgba(0,0,0,0.1);
-    display: flex; align-items: center; gap: 12px;
+    font-family: inherit;
+    font-size: 22px; font-weight: 700;
+    box-shadow: 0 5px 0 rgba(0,0,0,0.1);
+    display: flex; align-items: center; gap: 10px;
     color: #6b6b8a; cursor: pointer;
     animation: gentle-pulse 2s ease-in-out infinite;
   }
   @keyframes gentle-pulse {
-    0%, 100% { transform: translate(-50%, -50%) scale(1); }
-    50% { transform: translate(-50%, -50%) scale(1.05); }
+    0%, 100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.05); }
   }
   .demo-play-btn.hidden { display: none; }
-  .demo-play-btn:active { transform: translate(-50%, -48%); }
+  .demo-play-btn:active {
+    transform: translateX(-50%) translateY(3px);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.1);
+    animation: none;
+  }
+  .demo-play-btn[disabled] { opacity: 0.45; animation: none; }
 
   /* 격려 뱃지 (그리는 도중 표시) */
   .encourage-badge {
@@ -403,8 +414,9 @@
         <div class="canvas-wrapper" id="canvasWrapper">
           <svg class="guide-svg" id="guideSvg" preserveAspectRatio="xMidYMid meet"></svg>
           <canvas id="drawCanvas"></canvas>
-          <button class="demo-play-btn" id="demoBtn" onclick="playStrokeDemo()">
-            ▶️ <span>쓰는 순서 보기</span>
+          <svg class="demo-svg" id="demoSvg" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+          <button type="button" class="demo-play-btn" id="demoBtn" onclick="playStrokeDemo()">
+            🎬 <span>다시 보기</span>
           </button>
         </div>
         <div class="action-bar" id="actionBar"></div>

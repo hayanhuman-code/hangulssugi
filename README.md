@@ -74,14 +74,14 @@ Preserve the interaction model, motion timing, and visual hierarchy. Substitute 
 #### 2b. Step 1 — 보기 (See)
 - Canvas title: "👀 숫자 모양을 잘 보세요" (Look closely at the number's shape).
 - Guide SVG shows the number **filled in solid** with the accent color (stroke-width 32, 0.9 opacity, round caps/joins).
-- Center floating button "▶️ 쓰는 순서 보기" (Watch the stroke order) — white, 20px 32px padding, 999px, 28px font, `0 6px 0 rgba(0,0,0,0.1)` shadow, gentle pulse animation (scale 1 ↔ 1.05, 2s ease).
-- Pressing the button plays the **stroke-order animation**:
-  - Background silhouette becomes very faint (opacity 0.15).
+- The **stroke-order animation auto-plays once** 350ms after entering the step — the child sees the writing order without having to discover a button.
+- Replay button "🎬 다시 보기" (Watch again) sits at the **bottom-center of the canvas** (`bottom: 14px`, `translateX(-50%)`), white, 14px 26px padding, 999px, 22px font, `0 5px 0 rgba(0,0,0,0.1)` shadow, gentle pulse (scale 1 ↔ 1.05, 2s ease). It is deliberately *not* centered over the glyph — a center-floating button covers exactly the shape the child is meant to study. Disabled (opacity 0.45, no pulse) while the demo plays.
+- **Stroke-order animation** (see *Stroke-Order Demo Layer* below):
   - Each stroke path is drawn using `stroke-dasharray = pathLength, stroke-dashoffset = pathLength → 0` over `max(1.2s, pathLength/200)`.
   - Strokes play sequentially with 0.3s gap between them.
   - At each stroke's start point, a white circle (r=14) with a colored border (5px) and a numbered label (1, 2, ...) marks the starting position.
   - A soft "draw" tone (660Hz sine, 50ms, 0.05 vol) plays at the start of each stroke.
-- Action bar: single primary CTA "따라 써볼까요? →" (Shall we trace it?) — pink→orange gradient, white.
+- Action bar: single primary CTA "따라 써볼까요? →" (Shall we trace it?) — pink→orange gradient, white. It is the **only** element in the bar, so `justify-content: center` actually centers it.
 
 #### 2c. Step 2 — 따라쓰기 (Trace)
 - Canvas title: "✏️ 점선을 따라 손가락으로 그려보세요" (Trace the dotted line with your finger).
@@ -121,18 +121,38 @@ Preserve the interaction model, motion timing, and visual hierarchy. Substitute 
 
 ## Interactions & Behavior
 
+### Stroke-Order Demo Layer
+The demo **never rebuilds the step's guide SVG.** The canvas wrapper stacks three layers:
+
+| Layer | id | z-index | Role |
+|---|---|---|---|
+| Guide | `#guideSvg` | 1 | The current step's guide (solid / dotted / faint). Owned by `renderStep()`. |
+| Draw surface | `#drawCanvas` | 2 | The child's strokes. |
+| Demo overlay | `#demoSvg` | 3, `pointer-events: none` | Transient stroke-order playback only. |
+
+- `playStrokeDemo(auto)` renders the animated strokes + start markers into `#demoSvg`, and adds `.dimmed` (opacity 0.18, 0.25s transition) to `#guideSvg` so the animation reads clearly on top.
+- `stopStrokeDemo()` empties `#demoSvg` and removes `.dimmed`. Because the guide's own DOM was never touched, the step's guide is restored exactly — the dotted guide in Step 2 survives a 🎬 replay, and Step 3's 💡 hint leaves no solid answer behind.
+- Drawing is blocked while `STATE.demoPlaying` is true.
+- `STATE.demoToken` is bumped on every start/stop; the end-of-demo callback checks its token and returns if it has been superseded.
+
+### Timer Discipline
+Every deferred callback goes through `later(fn, ms)`, which records the id in `STATE.timers` and self-removes on fire. `clearTimers()` cancels all of them and is called on **step change, opening a number, and returning home**. Without this, a demo's queued callbacks kept firing after the child had already navigated away and would mutate the wrong screen. Applies to the demo sequence, encouragement badges, celebration star stagger, and confetti spawns.
+
 ### Drawing Interaction (Canvas Overlay)
 - **Steps 2 and 3 only.** Step 1 is read-only.
 - Full-size `<canvas>` element sitting above the guide SVG, `touch-action: none` (prevents page scroll interference).
 - Devicepixelratio-aware: internal canvas is `cssWidth × dpr`, transformed with `setTransform(dpr, 0, 0, dpr, 0, 0)`.
-- **Pointer/touch handlers**:
-  - `touchstart` / `mousedown` → begin new stroke `{ color: number.color, points: [pos] }`, play soft draw tone.
-  - `touchmove` / `mousemove` → append point only if it's >2px from the last (avoids over-sampling).
-  - `touchend` / `mouseup` / `mouseleave` / `touchcancel` → close stroke. After the first completed stroke, show "잘하고 있어요!" (You're doing great!) encouragement badge (top-right of canvas, green→blue gradient, 1.6s auto-dismiss).
+- **Pointer Events only** — a single unified path for finger, stylus and mouse. Registering both touch *and* mouse handlers made every finger stroke fire twice on hybrid devices.
+  - `pointerdown` → ignore if step 0, if a demo is playing, if a stroke is already in progress (rejects a second finger), or if it is a non-primary mouse button. Otherwise `setPointerCapture(e.pointerId)`, record `STATE.activePointerId`, begin stroke `{ color: number.color, points: [pos] }`, play soft draw tone.
+  - `pointermove` → ignore events from any other pointer id; append point only if it's >2px from the last (avoids over-sampling).
+  - `pointerup` / `pointercancel` → `releasePointerCapture`, close stroke. After the first completed stroke, show "잘하고 있어요!" (You're doing great!) encouragement badge (top-right of canvas, green→blue gradient, 1.6s auto-dismiss).
+  - Pointer capture means a stroke that wanders outside the canvas keeps tracking instead of being cut off, so no `mouseleave` fallback is needed.
 - **Rendering**: `lineWidth: 18, lineCap: round, lineJoin: round`, colored in the current number's accent color. A single-point tap draws a filled circle (r=9).
 - Redrawn from the strokes array on every point add and on resize.
 
 ### Sound Feedback (Web Audio API)
+**Unlocking:** iOS Safari starts the `AudioContext` in `suspended` state and only honours `resume()` from inside a user gesture. `unlockAudio()` (init + `resume()` if suspended) is bound to `pointerdown`, `touchend`, `click` and `keydown` on `document` — permanently, not `once`, because the context can be re-suspended by a phone call or alarm. It is also called on stroke start and when opening a number.
+
 Simple synthesized tones — replace with your codebase's audio library (AVAudioPlayer / ExoPlayer / react-native-sound) using short recorded SFX in production.
 - **Tap**: 880Hz triangle, 80ms, vol 0.10.
 - **Draw**: 660Hz sine, 50ms, vol 0.05 (on stroke start).
@@ -176,7 +196,10 @@ Global app state:
 - `step: 0 | 1 | 2` — 0=See, 1=Trace, 2=Solo.
 - `strokes: Stroke[]` — user's drawn strokes on the current canvas, cleared on step change or clear button. Each stroke is `{ color: string, points: {x, y}[] }`.
 - `drawing: boolean` — is the pointer currently down.
+- `activePointerId: number | null` — the pointer that owns the in-progress stroke; other pointers are ignored.
 - `currentStroke: Stroke | null` — the stroke currently being extended.
+- `timers: number[]` — live `setTimeout` ids, cancelled wholesale on navigation.
+- `demoPlaying: boolean` / `demoToken: number` — stroke-demo playback guard.
 - `progress: { [numberStr: string]: 0|1|2|3 }` — best star count earned per number, persisted to `localStorage.numberProgress`.
 
 Persistence: on `saveProgress(num, stars)`, write `progress[num] = max(progress[num], stars)` back to localStorage. In a native app, use secure key-value storage (UserDefaults / AsyncStorage / SharedPreferences).
@@ -231,7 +254,7 @@ No server / no fetching needed. The app is fully offline-capable.
 
 ### Number Stroke Paths (SVG)
 See `number-data.js` for the full geometry. Each number has:
-- `strokes: { d: string, start: [x,y], arrow: string }[]` — one entry per pen-lift stroke, in the order a child should write them.
+- `strokes: { d: string, start: [x,y] }[]` — one entry per pen-lift stroke, in the order a child should write them. Arrow direction is derived from the path's tangent at render time (`addArrowsAlongPath`), so no stored `arrow` field is needed; `xOffset` was likewise never read and has been removed.
 - `viewBox` (default `0 0 200 300`; two-digit numbers use wider viewBoxes like `0 0 240 300`).
 - The SVG viewBox is preserved via `preserveAspectRatio="xMidYMid meet"`.
 
@@ -292,7 +315,7 @@ Recreate these in native as a two-layer view: an offset color-tinted layer benea
 ## Files
 
 Bundled in this handoff:
-- `index.html` — full-page shell, styles, screen containers, celebration overlay markup.
+- `index.html` — full-page shell, styles, screen containers, demo overlay layer, celebration overlay markup.
 - `app.js` — all state, screen rendering, drawing canvas, SVG guide generation, stroke-order animation, sound synthesis, progress persistence.
 - `number-data.js` — the 21 number definitions (stroke paths, colors, Korean/English names, count emojis).
 
@@ -304,3 +327,17 @@ Bundled in this handoff:
 4. **Audio in production**: swap synthesized tones for short (100–400ms) recorded WAV/AAC files with the same emotional shape (gentle tap, ascending arpeggio for success, brighter multi-note fanfare for full completion).
 5. **Accessibility**: the current prototype does not include screen-reader labels or reduced-motion support — add both in production. VoiceOver labels for each number card (e.g. "숫자 3, 사과 3개, 별 두 개 획득"), and honor `prefers-reduced-motion` by disabling the wobble/pulse loops and the confetti.
 6. **Portrait mode**: the prototype gracefully collapses to a stacked layout when aspect ratio ≤ 1. Verify this on your target device sizes; the design is primarily intended for landscape iPad.
+
+
+---
+
+## Changelog
+
+### v2 — Stage A: bug fixes
+- **Stroke demo no longer destroys the step guide.** It previously replaced `#guideSvg.innerHTML` wholesale and only restored on `STATE.step === 0`, so 🎬 in Step 2 wiped the dotted guide and 💡 in Step 3 left the finished answer on screen, making "혼자쓰기" pointless. Playback now happens in a dedicated `#demoSvg` overlay; the guide is only dimmed via a CSS class and restores itself when the overlay is emptied.
+- **Timers are tracked and cancelled.** All deferred work runs through `later()`/`clearTimers()`; leaving a screen mid-demo no longer leaves callbacks running against the wrong view.
+- **Step 1 demo button moved off the glyph.** The animation auto-plays once on entry and the button now sits at the bottom of the canvas as "🎬 다시 보기".
+- **Removed the `visibility: hidden` dummy button** from the Step 1 action bar, which pushed the CTA off-centre.
+- **Touch + mouse handlers replaced by Pointer Events** with `setPointerCapture`, ending double-registration and mid-stroke drop-outs.
+- **iOS Safari silence fixed** — `audioCtx.resume()` on the first (and every subsequent) user gesture.
+- **Dead schema fields removed** — `arrow` and `xOffset` were never read by any code path.

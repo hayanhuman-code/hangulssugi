@@ -8,9 +8,36 @@ const STATE = {
   strokes: [],           // 사용자가 그린 stroke 리스트
   drawing: false,
   currentStroke: null,
+  activePointerId: null, // 그리는 중인 포인터 (멀티터치 방지)
   progress: JSON.parse(localStorage.getItem('numberProgress') || '{}'),  // { "3": 3 } -> 3번 숫자의 별 개수
   audioCtx: null,
+  timers: [],            // 살아있는 setTimeout id 전부
+  demoPlaying: false,
+  demoToken: 0,          // 취소된 데모의 뒤늦은 콜백을 무시하기 위한 토큰
 };
+
+// ---------- 타이머 추적 ----------
+// 화면이 바뀌면 예약된 콜백이 남아 이전 화면을 건드리는 사고를 막는다.
+function later(fn, ms) {
+  const id = setTimeout(() => {
+    STATE.timers = STATE.timers.filter(t => t !== id);
+    fn();
+  }, ms);
+  STATE.timers.push(id);
+  return id;
+}
+function clearTimers() {
+  STATE.timers.forEach(clearTimeout);
+  STATE.timers = [];
+}
+
+// ---------- SVG 엘리먼트 헬퍼 ----------
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs) {
+  const el = document.createElementNS(SVG_NS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
 
 // ---------- 오디오 (간단한 신디사이저) ----------
 function initAudio() {
@@ -18,6 +45,16 @@ function initAudio() {
   try {
     STATE.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   } catch(e) { console.warn('오디오 사용 불가'); }
+}
+// iOS Safari는 사용자 제스처 안에서 resume()을 호출해야 소리가 난다.
+// 전화·알람 등으로 다시 suspended가 될 수 있어 매 제스처마다 확인한다.
+function unlockAudio() {
+  initAudio();
+  const ctx = STATE.audioCtx;
+  if (ctx && ctx.state === 'suspended') {
+    const r = ctx.resume();
+    if (r && r.catch) r.catch(() => {});
+  }
 }
 function playTone(freq, duration = 0.15, type = 'sine', volume = 0.15, delay = 0) {
   if (!STATE.audioCtx) return;
@@ -39,7 +76,7 @@ function sfxSuccess() {
 }
 function sfxCelebrate() {
   [523, 659, 784, 1047, 1319].forEach((f, i) => playTone(f, 0.25, 'triangle', 0.15, i * 0.08));
-  setTimeout(() => [784, 1047, 1319].forEach((f, i) => playTone(f, 0.3, 'sine', 0.12, i * 0.1)), 400);
+  later(() => [784, 1047, 1319].forEach((f, i) => playTone(f, 0.3, 'sine', 0.12, i * 0.1)), 400);
 }
 
 // ---------- 홈 화면 ----------
@@ -78,7 +115,9 @@ function saveProgress(num, stars) {
 
 // ---------- 연습 화면 열기 ----------
 function openPractice(num) {
-  initAudio();
+  unlockAudio();
+  clearTimers();
+  stopStrokeDemo();
   STATE.currentNumber = num;
   STATE.step = 0;
   document.getElementById('home').style.display = 'none';
@@ -87,6 +126,8 @@ function openPractice(num) {
 }
 function goHome() {
   sfxTap();
+  clearTimers();
+  stopStrokeDemo();
   document.getElementById('practice').classList.remove('active');
   document.getElementById('home').style.display = 'flex';
   renderHome();
@@ -147,6 +188,11 @@ function renderStep() {
 
   const viewBox = data.viewBox || '0 0 200 300';
   svg.setAttribute('viewBox', viewBox);
+  document.getElementById('demoSvg').setAttribute('viewBox', viewBox);
+
+  // 단계가 바뀌면 이전 단계의 데모/예약 콜백을 전부 끊는다.
+  clearTimers();
+  stopStrokeDemo();
 
   STATE.strokes = [];
   clearCanvas();
@@ -155,9 +201,10 @@ function renderStep() {
   if (STATE.step === 0) {
     titleEl.innerHTML = '👀 숫자 모양을 잘 보세요';
     renderStepView(svg, data);
+    // 진입하자마자 획순을 한 번 보여준다 (버튼이 글자를 가리지 않도록).
     demoBtn.classList.remove('hidden');
+    later(() => playStrokeDemo(true), 350);
     actionBar.innerHTML = `
-      <button class="btn" onclick="prevStep()" style="visibility: hidden">이전</button>
       <button class="btn btn-primary" onclick="nextStep()">따라 써볼까요? →</button>
     `;
   } else if (STATE.step === 1) {
@@ -207,69 +254,74 @@ function renderStepView(svg, data) {
   });
 }
 
-// 획순 데모: SVG 다시 그리며 stroke-dashoffset 애니메이션
-function playStrokeDemo() {
-  sfxTap();
+// 획순 데모
+// 가이드 SVG는 절대 건드리지 않는다. 별도 오버레이 레이어(#demoSvg)에서만 재생하고,
+// 끝나면 오버레이를 비우는 것으로 원래 단계 가이드가 그대로 복구된다.
+function playStrokeDemo(auto) {
   const data = window.NUMBER_DATA[STATE.currentNumber];
-  const svg = document.getElementById('guideSvg');
-  document.getElementById('demoBtn').classList.add('hidden');
+  if (!data) return;
+  if (!auto) { unlockAudio(); sfxTap(); }
 
-  svg.innerHTML = '';
-  // 흐린 배경 숫자
-  data.strokes.forEach(s => {
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    bg.setAttribute('d', s.d);
-    bg.setAttribute('class', 'stroke-outline stroke-faint');
-    bg.setAttribute('stroke', data.color);
-    bg.setAttribute('stroke-width', '32');
-    svg.appendChild(bg);
-  });
+  stopStrokeDemo();                 // 재생 중이던 데모가 있으면 먼저 정리
+  const token = ++STATE.demoToken;  // 이 재생분의 신분증
+  STATE.demoPlaying = true;
 
-  // 애니메이션 획
+  const guide = document.getElementById('guideSvg');
+  const overlay = document.getElementById('demoSvg');
+  const btn = document.getElementById('demoBtn');
+
+  overlay.innerHTML = '';
+  guide.classList.add('dimmed');    // 가이드는 '흐려질' 뿐, 파괴되지 않는다
+  if (btn) btn.disabled = true;
+
   let cumulativeDelay = 0;
-  data.strokes.forEach((s, i) => {
-    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    p.setAttribute('d', s.d);
-    p.setAttribute('class', 'stroke-outline');
-    p.setAttribute('stroke', data.color);
-    p.setAttribute('stroke-width', '32');
-    svg.appendChild(p);
+  data.strokes.forEach((stroke, i) => {
+    const p = svgEl('path', {
+      d: stroke.d, class: 'stroke-outline',
+      stroke: data.color, 'stroke-width': 32
+    });
+    overlay.appendChild(p);
     const len = p.getTotalLength();
     const dur = Math.max(1.2, len / 200);
     p.style.setProperty('--len', len);
     p.style.setProperty('--delay', cumulativeDelay + 's');
     p.style.setProperty('--dur', dur + 's');
     p.classList.add('stroke-animate');
-    // 시작점 원
-    const [sx, sy] = s.start;
-    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-    circle.setAttribute('cx', sx); circle.setAttribute('cy', sy);
-    circle.setAttribute('r', '14');
-    circle.setAttribute('fill', 'white');
-    circle.setAttribute('stroke', data.color);
-    circle.setAttribute('stroke-width', '5');
-    svg.appendChild(circle);
-    const numLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    numLabel.setAttribute('x', sx); numLabel.setAttribute('y', sy + 6);
-    numLabel.setAttribute('text-anchor', 'middle');
-    numLabel.setAttribute('font-size', '18');
-    numLabel.setAttribute('font-weight', 'bold');
-    numLabel.setAttribute('fill', data.color);
-    numLabel.setAttribute('font-family', 'Jua, sans-serif');
-    numLabel.textContent = (i + 1);
-    svg.appendChild(numLabel);
-    // 소리
-    setTimeout(() => sfxDraw(), cumulativeDelay * 1000);
+
+    // 시작점 표식
+    const [sx, sy] = stroke.start;
+    overlay.appendChild(svgEl('circle', {
+      cx: sx, cy: sy, r: 14, fill: 'white',
+      stroke: data.color, 'stroke-width': 5
+    }));
+    const label = svgEl('text', {
+      x: sx, y: sy + 6, 'text-anchor': 'middle',
+      'font-size': 18, 'font-weight': 'bold',
+      fill: data.color, 'font-family': 'Jua, sans-serif'
+    });
+    label.textContent = (i + 1);
+    overlay.appendChild(label);
+
+    later(() => sfxDraw(), cumulativeDelay * 1000);
     cumulativeDelay += dur + 0.3;
   });
 
-  // 끝나면 데모버튼 다시 표시 (1단계에서만)
-  setTimeout(() => {
-    if (STATE.step === 0) {
-      document.getElementById('demoBtn').classList.remove('hidden');
-      renderStepView(svg, data);  // 정적 상태로 복귀
-    }
-  }, cumulativeDelay * 1000 + 500);
+  later(() => {
+    if (token !== STATE.demoToken) return;   // 그 사이 취소·재시작됨
+    stopStrokeDemo();
+  }, cumulativeDelay * 1000 + 400);
+}
+
+// 데모 중단/정리: 오버레이만 비우고 가이드 디밍을 푼다.
+function stopStrokeDemo() {
+  STATE.demoToken++;
+  STATE.demoPlaying = false;
+  const overlay = document.getElementById('demoSvg');
+  if (overlay) overlay.innerHTML = '';
+  const guide = document.getElementById('guideSvg');
+  if (guide) guide.classList.remove('dimmed');
+  const btn = document.getElementById('demoBtn');
+  if (btn) btn.disabled = false;
 }
 
 // ---------- 2단계: 따라쓰기 (점선 + 시작점 + 화살표) ----------
@@ -355,25 +407,29 @@ function resizeCanvas() {
 }
 
 function getPointerPos(e) {
-  const canvas = document.getElementById('drawCanvas');
-  const rect = canvas.getBoundingClientRect();
-  const t = e.touches ? e.touches[0] : e;
-  return { x: t.clientX - rect.left, y: t.clientY - rect.top };
+  const rect = document.getElementById('drawCanvas').getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
 }
 
+// Pointer Events 하나로 터치·마우스·펜을 모두 처리한다.
+// setPointerCapture 덕분에 손가락이 캔버스 밖으로 나가도 획이 끊기지 않는다.
 function startDraw(e) {
+  if (STATE.step === 0 || STATE.demoPlaying) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  if (STATE.drawing) return;                 // 두 번째 손가락 무시
   e.preventDefault();
-  if (STATE.step === 0) return;
+  unlockAudio();
+  try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+  STATE.activePointerId = e.pointerId;
   STATE.drawing = true;
   const data = window.NUMBER_DATA[STATE.currentNumber];
-  const pos = getPointerPos(e);
-  STATE.currentStroke = { color: data.color, points: [pos] };
+  STATE.currentStroke = { color: data.color, points: [getPointerPos(e)] };
   STATE.strokes.push(STATE.currentStroke);
   sfxDraw();
   redrawUserStrokes();
 }
 function moveDraw(e) {
-  if (!STATE.drawing) return;
+  if (!STATE.drawing || e.pointerId !== STATE.activePointerId) return;
   e.preventDefault();
   const pos = getPointerPos(e);
   const pts = STATE.currentStroke.points;
@@ -384,13 +440,14 @@ function moveDraw(e) {
   }
 }
 function endDraw(e) {
-  if (STATE.drawing) {
-    STATE.drawing = false;
-    STATE.currentStroke = null;
-    // 격려 뱃지
-    if (STATE.strokes.length === 1) {
-      showEncourage('잘하고 있어요!');
-    }
+  if (!STATE.drawing || e.pointerId !== STATE.activePointerId) return;
+  try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (_) {}
+  STATE.activePointerId = null;
+  STATE.drawing = false;
+  STATE.currentStroke = null;
+  // 격려 뱃지
+  if (STATE.strokes.length === 1) {
+    showEncourage('잘하고 있어요!');
   }
 }
 
@@ -437,7 +494,7 @@ function showEncourage(msg) {
   b.className = 'encourage-badge';
   b.textContent = '👍 ' + msg;
   document.getElementById('canvasWrapper').appendChild(b);
-  setTimeout(() => b.remove(), 1600);
+  later(() => b.remove(), 1600);
 }
 
 // ---------- 검사 & 완료 ----------
@@ -479,7 +536,7 @@ function showCelebration(stars, isFinal) {
   starSpans.forEach((s, i) => {
     s.classList.remove('show');
     if (i < stars) {
-      setTimeout(() => s.classList.add('show'), 200 + i * 250);
+      later(() => s.classList.add('show'), 200 + i * 250);
     }
   });
 
@@ -513,7 +570,7 @@ function nextNumber() {
 function launchConfetti() {
   const emojis = ['🎉','⭐','✨','🌈','🎊','💖','🌟','🎁'];
   for (let i = 0; i < 24; i++) {
-    setTimeout(() => {
+    later(() => {
       const el = document.createElement('div');
       el.className = 'confetti';
       el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
@@ -521,7 +578,7 @@ function launchConfetti() {
       el.style.top = '-40px';
       el.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
       document.getElementById('app').appendChild(el);
-      setTimeout(() => el.remove(), 3000);
+      later(() => el.remove(), 3000);
     }, i * 40);
   }
 }
@@ -531,14 +588,15 @@ window.addEventListener('load', () => {
   renderHome();
 
   const canvas = document.getElementById('drawCanvas');
-  canvas.addEventListener('touchstart', startDraw, { passive: false });
-  canvas.addEventListener('touchmove', moveDraw, { passive: false });
-  canvas.addEventListener('touchend', endDraw);
-  canvas.addEventListener('touchcancel', endDraw);
-  canvas.addEventListener('mousedown', startDraw);
-  canvas.addEventListener('mousemove', moveDraw);
-  canvas.addEventListener('mouseup', endDraw);
-  canvas.addEventListener('mouseleave', endDraw);
+  canvas.addEventListener('pointerdown', startDraw);
+  canvas.addEventListener('pointermove', moveDraw, { passive: false });
+  canvas.addEventListener('pointerup', endDraw);
+  canvas.addEventListener('pointercancel', endDraw);
+
+  // 첫 사용자 제스처에서 오디오 잠금 해제 (iOS Safari 무음 방지)
+  ['pointerdown', 'touchend', 'click', 'keydown'].forEach(ev => {
+    document.addEventListener(ev, unlockAudio, { passive: true });
+  });
 
   window.addEventListener('resize', resizeCanvas);
 });
@@ -548,6 +606,7 @@ window.goHome = goHome;
 window.nextStep = nextStep;
 window.prevStep = prevStep;
 window.playStrokeDemo = playStrokeDemo;
+window.stopStrokeDemo = stopStrokeDemo;
 window.clearAll = clearAll;
 window.checkTrace = checkTrace;
 window.finishPractice = finishPractice;
