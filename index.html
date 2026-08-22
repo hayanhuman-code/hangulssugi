@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>쓰기연습 — 한글·숫자</title>
+<meta name="description" content="만 4세를 위한 한글·숫자 쓰기 연습. 보기 → 따라쓰기 → 혼자쓰기 3단계.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23FFC94D'/%3E%3Ctext x='32' y='46' font-size='40' text-anchor='middle' fill='%235A4A38' font-family='sans-serif'%3E가%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gothic+A1:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<div id="stage">
+
+  <!-- 홈 · 학습 선택 -->
+  <section class="screen on" id="screen-home">
+    <div class="home-head">
+      <div class="mark">가</div>
+      <div class="title">오늘은 뭐 써 볼까?</div>
+      <div class="star-pill">
+        <div class="bead">★</div>
+        <div class="count" data-star-total>0</div>
+      </div>
+    </div>
+    <div class="tabs" id="tabs"></div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- 연습 · 3단계 -->
+  <section class="screen" id="screen-practice">
+    <div class="practice-head">
+      <div class="round-btn press" id="btn-back" role="button" aria-label="뒤로"></div>
+      <div class="chips" id="chips"></div>
+      <div class="star-pill sm">
+        <div class="bead">★</div>
+        <div class="count" data-star-total>0</div>
+      </div>
+    </div>
+
+    <div class="practice-body">
+      <div class="panel">
+        <div class="big-card">
+          <div class="glyph" id="panel-glyph"></div>
+          <div class="name" id="panel-name"></div>
+        </div>
+        <div class="word-card">
+          <div class="thumb" id="panel-emoji"></div>
+          <div>
+            <div class="word" id="panel-word"></div>
+            <div class="cap" id="panel-cap">대표 단어</div>
+          </div>
+        </div>
+        <div class="sound-row">
+          <div class="sound-btn press" id="btn-sound" role="button"></div>
+          <div class="tip" id="panel-tip"></div>
+        </div>
+      </div>
+
+      <div class="work">
+        <div class="canvas-box" id="canvas-box">
+          <div class="badge" id="canvas-badge">잘 봐요</div>
+          <svg class="guide layer" id="guide" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+            <g id="g-grid"></g>
+            <g id="g-guide"></g>
+            <g id="g-anim"></g>
+            <g id="g-marks"></g>
+          </svg>
+          <canvas class="ink" id="ink"></canvas>
+        </div>
+        <div class="toolbar">
+          <div class="icon-btn press" id="btn-replay" role="button"></div>
+          <div class="icon-btn press" id="btn-clear" role="button"></div>
+          <div class="icon-btn press hint" id="btn-hint" role="button"></div>
+          <div class="cta press" id="btn-next" role="button">다 했어요</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 다 했어요 -->
+  <div class="overlay" id="overlay"></div>
+</div>
+
+<div id="rotate">
+  <div style="font-size:64px">📱↻</div>
+  <div>화면을 가로로 돌려 주세요</div>
+</div>
+
+<script src="js/glyphs.js"></script>
+<script src="js/curriculum.js"></script>
+<script src="js/progress.js"></script>
+<script src="js/sound.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/practice.js"></script>
+<script src="js/home.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

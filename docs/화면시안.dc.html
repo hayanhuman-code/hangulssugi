@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gothic+A1:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#EFE7DA; font-family:'Jua', sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#2F6BD8; text-decoration:none; }
+  a:hover { color:#1E4FA8; }
+  @keyframes dcDraw { 0% { stroke-dashoffset:520; } 55% { stroke-dashoffset:0; } 100% { stroke-dashoffset:0; } }
+</style>
+</helmet>
+
+<section style="display:flex;flex-direction:column;gap:72px;padding:72px;box-sizing:border-box;background:#EFE7DA">
+
+  <div style="display:flex;align-items:flex-end;gap:28px;flex-wrap:wrap">
+    <div style="width:96px;height:96px;border-radius:28px;background:#FFC94D;display:flex;align-items:center;justify-content:center;font-size:52px;color:#5A4A38;box-shadow:0 6px 0 rgba(90,74,56,.16)">가</div>
+    <div>
+      <div style="font-size:52px;color:#3B3226;line-height:1.1">유아 한글·숫자 쓰기 연습 앱 — 화면 시안 v2</div>
+      <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:20px;color:#7A6C5A;margin-top:10px">가로 태블릿 1180 × 820 기준 · 만 4세 사용자 · 채점/오답 표현 없음 · 모든 수치는 1x px</div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="font-size:34px;color:#3B3226">01 — 디자인 시스템</div>
+      <div style="flex:1;height:3px;background:#DDD2C0;border-radius:2px"></div>
+    </div>
+
+    <div style="width:1180px;background:#FFF8EE;border-radius:32px;padding:40px;box-sizing:border-box;display:flex;flex-direction:column;gap:20px;box-shadow:0 8px 0 rgba(90,74,56,.10),0 26px 50px rgba(60,48,36,.12)">
+      <div style="font-size:28px;color:#3B3226">색 팔레트</div>
+      <sc-for list="{{ paletteGroups }}" as="g" hint-placeholder-count="4">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div style="font-family:'Gothic A1',sans-serif;font-weight:700;font-size:16px;color:#7A6C5A;letter-spacing:.02em">{{ g.title }}</div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="5">
+              <div style="width:172px;border-radius:20px;overflow:hidden;background:#FFFFFF;box-shadow:0 4px 0 rgba(90,74,56,.08)">
+                <div style="{{ c.chipStyle }}"></div>
+                <div style="padding:10px 12px 12px">
+                  <div style="font-size:18px;color:#3B3226">{{ c.name }}</div>
+                  <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#8B7C68;margin-top:2px">{{ c.hex }} · {{ c.use }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+      <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#8B7C68;background:#F6EEE1;border-radius:16px;padding:14px 18px;line-height:1.6">획 색은 캔버스 배경 #FFFDF8 대비 4.5:1 이상을 확보한 값입니다. v1의 #FFD93D(노랑)는 획 색에서 제외하고, 별·보상 등 장식 용도로만 씁니다.</div>
+    </div>
+
+    <div style="display:flex;gap:28px;flex-wrap:wrap">
+      <div style="width:576px;background:#FFF8EE;border-radius:32px;padding:36px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px;box-shadow:0 8px 0 rgba(90,74,56,.10),0 26px 50px rgba(60,48,36,.12)">
+        <div style="font-size:28px;color:#3B3226">타이포 스케일 — Jua (아이용) / Gothic A1 (부모용)</div>
+        <sc-for list="{{ typeScale }}" as="t" hint-placeholder-count="6">
+          <div style="display:flex;align-items:baseline;gap:18px;border-bottom:2px dashed #E6DCCB;padding-bottom:12px">
+            <div style="{{ t.sampleStyle }}">{{ t.sample }}</div>
+            <div style="margin-left:auto;text-align:right">
+              <div style="font-family:'Gothic A1',sans-serif;font-weight:700;font-size:15px;color:#3B3226">{{ t.spec }}</div>
+              <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#8B7C68">{{ t.use }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="width:576px;display:flex;flex-direction:column;gap:28px">
+        <div style="background:#FFF8EE;border-radius:32px;padding:36px;box-sizing:border-box;display:flex;flex-direction:column;gap:22px;box-shadow:0 8px 0 rgba(90,74,56,.10),0 26px 50px rgba(60,48,36,.12)">
+          <div style="font-size:28px;color:#3B3226">그림자 3종 — 2겹 "장난감" 그림자</div>
+          <div style="display:flex;gap:20px;align-items:flex-start">
+            <div style="display:flex;flex-direction:column;gap:10px;align-items:center;width:150px">
+              <div style="width:130px;height:100px;border-radius:24px;background:#FFFFFF;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08)"></div>
+              <div style="font-size:18px;color:#3B3226;margin-top:6px">카드 / 기본</div>
+              <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:12.5px;color:#8B7C68;text-align:center;line-height:1.5">0 6px 0 rgba(90,74,56,.12)<br>0 12px 24px rgba(90,74,56,.08)</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;align-items:center;width:150px">
+              <div style="width:130px;height:100px;margin-top:4px;border-radius:24px;background:#FFFFFF;box-shadow:0 2px 0 rgba(90,74,56,.12), 0 4px 10px rgba(90,74,56,.06)"></div>
+              <div style="font-size:18px;color:#3B3226;margin-top:6px">눌림 (active)</div>
+              <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:12.5px;color:#8B7C68;text-align:center;line-height:1.5">translateY(4px) +<br>0 2px 0 / 0 4px 10px<br>transition 90ms ease-out</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;align-items:center;width:150px">
+              <div style="width:130px;height:100px;border-radius:24px;background:#FFFFFF;box-shadow:0 10px 0 rgba(90,74,56,.14), 0 32px 64px rgba(60,48,36,.22)"></div>
+              <div style="font-size:18px;color:#3B3226;margin-top:6px">오버레이</div>
+              <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:12.5px;color:#8B7C68;text-align:center;line-height:1.5">0 10px 0 rgba(90,74,56,.14)<br>0 32px 64px rgba(60,48,36,.22)</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background:#FFF8EE;border-radius:32px;padding:36px;box-sizing:border-box;display:flex;flex-direction:column;gap:16px;box-shadow:0 8px 0 rgba(90,74,56,.10),0 26px 50px rgba(60,48,36,.12)">
+          <div style="font-size:28px;color:#3B3226">간격 · 라디우스 스케일</div>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <sc-for list="{{ spacingScale }}" as="s" hint-placeholder-count="8">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+                <div style="{{ s.barStyle }}"></div>
+                <div style="font-family:'Gothic A1',sans-serif;font-weight:700;font-size:13px;color:#7A6C5A">{{ s.v }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#8B7C68;line-height:1.7">라디우스 — 아이콘 버튼 24 / 버튼 28 / 카드 32 / 큰 카드·캔버스 40 / 알약 999<br>화면 바깥 여백 36, 패널 내부 여백 28, 카드 내부 여백 20</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:1180px;background:#FFF8EE;border-radius:32px;padding:40px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px;box-shadow:0 8px 0 rgba(90,74,56,.10),0 26px 50px rgba(60,48,36,.12)">
+      <div style="font-size:28px;color:#3B3226">버튼 규격 — 최소 터치 영역 60 × 60, 실제 사용값은 아래 기준</div>
+      <div style="display:flex;gap:28px;align-items:flex-end;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+          <div style="height:88px;padding:0 44px;border-radius:28px;background:#3F9E6C;color:#FFFFFF;font-size:32px;display:flex;align-items:center;box-shadow:0 6px 0 rgba(35,90,62,.45), 0 12px 24px rgba(90,74,56,.10)">다 했어요</div>
+          <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#8B7C68;text-align:center;line-height:1.5">주요 CTA · h88 · r28<br>좌우 44 · 텍스트 32</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+          <div style="height:76px;padding:0 32px;border-radius:24px;background:#FFFFFF;border:3px solid #E3D8C6;color:#7A6C5A;font-size:26px;display:flex;align-items:center;box-shadow:0 5px 0 rgba(90,74,56,.10)">건너뛰기</div>
+          <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#8B7C68;text-align:center;line-height:1.5">보조 · h76 · r24<br>테두리 3 · 텍스트 26</div>
+        </div>
+        <div style="display:flex;gap:14px">
+          <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+            <div style="width:112px;height:112px;border-radius:24px;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08)">
+              <svg width="46" height="46" viewBox="0 0 48 48" fill="none"><path d="M12 30c0-8 6-14 14-14 5 0 9 2 11 5" stroke="#7A6C5A" stroke-width="5" stroke-linecap="round"/><path d="M38 12v10H28" stroke="#7A6C5A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <div style="font-size:18px;color:#7A6C5A">다시보기</div>
+            </div>
+            <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#8B7C68;text-align:center;line-height:1.5">아이콘 버튼 · 112×112<br>아이콘 46 + 라벨 18</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+          <div style="width:132px;height:132px;border-radius:999px;background:#FFC94D;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 7px 0 rgba(196,140,20,.55), 0 14px 26px rgba(90,74,56,.12)">
+            <svg width="52" height="52" viewBox="0 0 48 48" fill="none"><path d="M10 19h7l9-7v24l-9-7h-7z" fill="#5A4A38"/><path d="M32 17c3 3.5 3 10.5 0 14" stroke="#5A4A38" stroke-width="4.5" stroke-linecap="round"/><path d="M38 12c5.5 6 5.5 18 0 24" stroke="#5A4A38" stroke-width="4.5" stroke-linecap="round"/></svg>
+            <div style="font-size:19px;color:#5A4A38">소리 듣기</div>
+          </div>
+          <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#8B7C68;text-align:center;line-height:1.5">소리 듣기 · 132 원형<br>모든 화면 같은 위치(좌측 하단)</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+          <div style="width:88px;height:88px;border-radius:999px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08)">
+            <svg width="42" height="42" viewBox="0 0 48 48" fill="none"><path d="M29 12L17 24l12 12" stroke="#7A6C5A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#8B7C68;text-align:center;line-height:1.5">뒤로 · 88 원형<br>항상 좌상단 (36, 36)</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:1180px;background:#FFF8EE;border-radius:32px;padding:40px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px;box-shadow:0 8px 0 rgba(90,74,56,.10),0 26px 50px rgba(60,48,36,.12)">
+      <div>
+        <div style="font-size:28px;color:#3B3226">획 가이드 3층 구조 — v1 문제 ①의 해결</div>
+        <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:16px;color:#8B7C68;margin-top:6px">굵은 선에 점선 패턴을 넣지 않습니다. 세 층은 각각 다른 요소로 그리고, 굵기 44 → 5 → 아이콘 순으로 대비를 만듭니다.</div>
+      </div>
+      <div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">
+        <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+          <div style="width:240px;height:240px;border-radius:32px;background:#FFFDF8;border:3px solid #EFE6D6;display:flex;align-items:center;justify-content:center">
+            <svg width="200" height="200" viewBox="0 0 400 400" fill="none"><path d="M92 104 H308 L196 320" stroke="#C9512A" stroke-opacity="0.16" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="font-size:21px;color:#3B3226">① 넓은 띠</div>
+          <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#8B7C68;text-align:center;line-height:1.6">stroke-width 44<br>카테고리색 opacity .16<br>linecap / linejoin: round</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+          <div style="width:240px;height:240px;border-radius:32px;background:#FFFDF8;border:3px solid #EFE6D6;display:flex;align-items:center;justify-content:center">
+            <svg width="200" height="200" viewBox="0 0 400 400" fill="none"><path d="M92 104 H308 L196 320" stroke="#C9512A" stroke-opacity="0.16" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/><path d="M92 104 H308 L196 320" stroke="#C9512A" stroke-opacity="0.7" stroke-width="5" stroke-linecap="round" stroke-dasharray="4 16"/></svg>
+          </div>
+          <div style="font-size:21px;color:#3B3226">② 가는 점선</div>
+          <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#8B7C68;text-align:center;line-height:1.6">stroke-width 5 · dash 4 / gap 16<br>카테고리 딥색 opacity .70<br>띠의 정중앙 패스 공유</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;align-items:center">
+          <div style="width:240px;height:240px;border-radius:32px;background:#FFFDF8;border:3px solid #EFE6D6;display:flex;align-items:center;justify-content:center">
+            <svg width="200" height="200" viewBox="0 0 400 400" fill="none"><path d="M92 104 H308 L196 320" stroke="#C9512A" stroke-opacity="0.16" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/><path d="M92 104 H308 L196 320" stroke="#C9512A" stroke-opacity="0.7" stroke-width="5" stroke-linecap="round" stroke-dasharray="4 16"/><circle cx="92" cy="104" r="30" fill="#C9512A"/><text x="92" y="118" text-anchor="middle" font-family="Jua" font-size="36" fill="#FFFFFF">1</text><path d="M214 292 L196 320 L178 288" fill="#C9512A"/></svg>
+          </div>
+          <div style="font-size:21px;color:#3B3226">③ 시작 번호 + 방향 화살표</div>
+          <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#8B7C68;text-align:center;line-height:1.6">시작 배지 지름 60 · 숫자 36<br>화살촉 폭 36 / 높이 32<br>둘 다 딥색 100% (불투명)</div>
+        </div>
+        <div style="flex:1;min-width:300px;background:#F6EEE1;border-radius:24px;padding:24px;display:flex;flex-direction:column;gap:14px">
+          <div style="font-size:22px;color:#3B3226">겹침 규칙</div>
+          <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#7A6C5A;line-height:1.9">· 명도 대비: 띠 16% → 점선 70% → 화살표 100%<br>· 굵기 대비: 44 → 5 → 아이콘 60<br>· 화살표·번호는 띠 안쪽이 아니라 <b>획의 시작점과 끝점 바깥</b>에 배치<br>· 획이 2개 이상이면 번호 배지 ①②③ 순서, 다음 획은 45% 흐리게 대기<br>· 아이가 그은 선은 그 위에 별도 레이어(딥색 100%, 굵기 40)로 얹음<br>· 가이드는 완주 시 사라지지 않고 그대로 둠 (틀림 표현 없음)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="font-size:34px;color:#3B3226">02 — 홈 · 학습 선택</div>
+      <div style="flex:1;height:3px;background:#DDD2C0;border-radius:2px"></div>
+    </div>
+
+    <div style="display:flex;gap:36px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="font-family:'Gothic A1',sans-serif;font-weight:700;font-size:17px;color:#7A6C5A">홈 — 숫자 탭 (21개 · 7열 그리드)</div>
+        <div style="width:1180px;height:820px;border-radius:28px;background:#FFF8EE;overflow:hidden;position:relative;box-shadow:0 8px 0 rgba(90,74,56,.12),0 30px 60px rgba(60,48,36,.18);flex:none;padding:36px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px">
+
+          <div style="display:flex;align-items:center;gap:20px">
+            <div style="width:72px;height:72px;border-radius:22px;background:#FFC94D;display:flex;align-items:center;justify-content:center;font-size:40px;color:#5A4A38;box-shadow:0 5px 0 rgba(196,140,20,.5)">가</div>
+            <div style="font-size:34px;color:#3B3226">오늘은 뭐 써 볼까?</div>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:12px;height:76px;padding:0 28px 0 20px;border-radius:999px;background:#FFFFFF;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08)">
+              <div style="width:52px;height:52px;border-radius:999px;background:#FFF2CE;display:flex;align-items:center;justify-content:center;font-size:30px;color:#F5B324">★</div>
+              <div style="font-size:36px;color:#3B3226">48</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px">
+            <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5">
+              <div style="{{ t.style }}">
+                <div style="{{ t.iconStyle }}">{{ t.icon }}</div>
+                <div style="{{ t.labelStyle }}">{{ t.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:20px">
+            <sc-for list="{{ numbers }}" as="item" hint-placeholder-count="21">
+              <div style="{{ item.cardStyle }}">
+                <div style="{{ item.glyphStyle }}">{{ item.ch }}</div>
+                <div style="{{ item.readStyle }}">{{ item.read }}</div>
+                <div style="{{ item.starRowStyle }}">
+                  <sc-for list="{{ item.starList }}" as="s" hint-placeholder-count="3">
+                    <div style="{{ s.style }}">★</div>
+                  </sc-for>
+                </div>
+                <div style="{{ item.lockStyle }}">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="11" rx="4" fill="#B6A994"/><path d="M8 10V7.5a4 4 0 018 0V10" stroke="#B6A994" stroke-width="3" stroke-linecap="round"/></svg>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="font-family:'Gothic A1',sans-serif;font-weight:700;font-size:17px;color:#7A6C5A">홈 — 단어 탭 (16개 · 4열 큰 카드) · 그리드가 항목 수에 따라 바뀌는 방식</div>
+        <div style="width:1180px;height:820px;border-radius:28px;background:#FFF8EE;overflow:hidden;position:relative;box-shadow:0 8px 0 rgba(90,74,56,.12),0 30px 60px rgba(60,48,36,.18);flex:none;padding:36px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px">
+
+          <div style="display:flex;align-items:center;gap:20px">
+            <div style="width:72px;height:72px;border-radius:22px;background:#FFC94D;display:flex;align-items:center;justify-content:center;font-size:40px;color:#5A4A38;box-shadow:0 5px 0 rgba(196,140,20,.5)">가</div>
+            <div style="font-size:34px;color:#3B3226">오늘은 뭐 써 볼까?</div>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:12px;height:76px;padding:0 28px 0 20px;border-radius:999px;background:#FFFFFF;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08)">
+              <div style="width:52px;height:52px;border-radius:999px;background:#FFF2CE;display:flex;align-items:center;justify-content:center;font-size:30px;color:#F5B324">★</div>
+              <div style="font-size:36px;color:#3B3226">48</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:14px">
+            <sc-for list="{{ tabsWord }}" as="t" hint-placeholder-count="5">
+              <div style="{{ t.style }}">
+                <div style="{{ t.iconStyle }}">{{ t.icon }}</div>
+                <div style="{{ t.labelStyle }}">{{ t.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px">
+            <sc-for list="{{ words }}" as="item" hint-placeholder-count="16">
+              <div style="{{ item.cardStyle }}">
+                <div style="{{ item.emojiStyle }}">{{ item.emoji }}</div>
+                <div style="flex:1">
+                  <div style="{{ item.glyphStyle }}">{{ item.ch }}</div>
+                  <div style="{{ item.starRowStyle }}">
+                    <sc-for list="{{ item.starList }}" as="s" hint-placeholder-count="3">
+                      <div style="{{ s.style }}">★</div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="{{ item.lockStyle }}">
+                  <svg width="30" height="30" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="16" height="11" rx="4" fill="#B6A994"/><path d="M8 10V7.5a4 4 0 018 0V10" stroke="#B6A994" stroke-width="3" stroke-linecap="round"/></svg>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:1180px;background:#FFF8EE;border-radius:32px;padding:32px 36px;box-sizing:border-box;display:flex;gap:36px;box-shadow:0 8px 0 rgba(90,74,56,.10)">
+      <div style="flex:1">
+        <div style="font-size:24px;color:#3B3226;margin-bottom:12px">그리드 대응 규칙</div>
+        <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#7A6C5A;line-height:1.9">숫자 21개 · 자음 19개 · 모음 21개 → <b>7열 × 3행</b>, 카드 140 × 150, 간격 20<br>글자 14개 이상 → <b>5열 × 3행</b>, 카드 204 × 150 (글자 + 읽는 법 가로 배치)<br>글자·단어가 15개를 넘으면 세로 스크롤 대신 <b>가로 페이지 넘김</b> + 하단 점 인디케이터<br>단어 16개 → <b>4열 × 4행</b>, 카드 260 × 112 (뜻 그림 + 단어 가로 배치)</div>
+      </div>
+      <div style="width:1px;background:#E6DCCB"></div>
+      <div style="flex:1">
+        <div style="font-size:24px;color:#3B3226;margin-bottom:12px">잠금 상태 표현</div>
+        <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#7A6C5A;line-height:1.9">카드 배경 #F1E9DC, 글자 opacity .35, 그림자 없음(평평하게 가라앉음)<br>자물쇠는 모서리 둥근 형태 · 색 #B6A994 · 빨강·회색 경고 톤 금지<br>탭하면 흔들림 대신 <b>살짝 통통 튀고</b> "다음에 만나요" 소리 재생<br>바로 앞 항목을 끝내면 자물쇠가 열리며 카드가 팝업되는 전환</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="font-size:34px;color:#3B3226">03 — 연습 화면 · 3단계</div>
+      <div style="flex:1;height:3px;background:#DDD2C0;border-radius:2px"></div>
+    </div>
+
+    <div style="width:1180px;background:#FFF8EE;border-radius:32px;padding:32px 36px;box-sizing:border-box;display:flex;gap:36px;box-shadow:0 8px 0 rgba(90,74,56,.10)">
+      <div style="flex:1">
+        <div style="font-size:24px;color:#3B3226;margin-bottom:12px">레이아웃 (1180 × 820, 바깥 여백 36)</div>
+        <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#7A6C5A;line-height:1.9">상단 바 88 (뒤로 88원형 + 단계 칩 3개) · 상단↔본문 간격 24<br>좌 정보 패널 <b>332</b> — 내용에 맞춰 붙는 카드 2장, 남는 공간은 비워둠<br>우 캔버스 748 × 504 (r40) · 캔버스↔버튼바 간격 20 · 버튼바 112<br>소리 듣기 132원형은 <b>패널 좌측 하단 고정</b> (margin-top:auto) — 전 화면 동일 좌표</div>
+      </div>
+      <div style="width:1px;background:#E6DCCB"></div>
+      <div style="flex:1">
+        <div style="font-size:24px;color:#3B3226;margin-bottom:12px">단계 칩 상태</div>
+        <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#7A6C5A;line-height:1.9">완료 = #8FD8B0 면 + 체크 · 진행 중 = #3F9E6C 면 + 흰 글자 + 6px 오프셋 그림자<br>대기 = #F1E9DC 면 + #A79A88 글자, 그림자 없음<br>칩 높이 72 · 좌우 여백 24 · 라디우스 999 · 아이콘 40 + 라벨 26<br>단계 전환은 자동. 되돌아가기 버튼 없음 (실패 개념이 없으므로)</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-family:'Gothic A1',sans-serif;font-weight:700;font-size:17px;color:#7A6C5A">1단계 · 보기 — 진한 글자 + 획순 애니메이션</div>
+      <div style="width:1180px;height:820px;border-radius:28px;background:#FFF8EE;overflow:hidden;box-shadow:0 8px 0 rgba(90,74,56,.12),0 30px 60px rgba(60,48,36,.18);flex:none;padding:36px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px">
+        <div style="display:flex;align-items:center;gap:20px;flex:none">
+          <div style="width:88px;height:88px;border-radius:999px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08);flex:none">
+            <svg width="42" height="42" viewBox="0 0 48 48" fill="none"><path d="M29 12L17 24l12 12" stroke="#7A6C5A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="display:flex;gap:12px;margin-left:8px">
+            <div style="height:72px;padding:0 24px;border-radius:999px;background:#3F9E6C;display:flex;align-items:center;gap:12px;box-shadow:0 6px 0 rgba(35,90,62,.45)">
+              <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M4 24s7-11 20-11 20 11 20 11-7 11-20 11S4 24 4 24z" stroke="#FFFFFF" stroke-width="4"/><circle cx="24" cy="24" r="6" fill="#FFFFFF"/></svg>
+              <div style="font-size:26px;color:#FFFFFF">보기</div>
+            </div>
+            <div style="height:72px;padding:0 24px;border-radius:999px;background:#F1E9DC;display:flex;align-items:center;gap:12px">
+              <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M32 8l8 8-20 20-10 2 2-10z" stroke="#A79A88" stroke-width="4" stroke-linejoin="round"/><path d="M8 42h32" stroke="#A79A88" stroke-width="4" stroke-linecap="round"/></svg>
+              <div style="font-size:26px;color:#A79A88">따라쓰기</div>
+            </div>
+            <div style="height:72px;padding:0 24px;border-radius:999px;background:#F1E9DC;display:flex;align-items:center;gap:12px">
+              <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M24 6l5.5 11.5L42 19l-9 9 2 13-11-6-11 6 2-13-9-9 12.5-1.5z" stroke="#A79A88" stroke-width="4" stroke-linejoin="round"/></svg>
+              <div style="font-size:26px;color:#A79A88">혼자쓰기</div>
+            </div>
+          </div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:10px;height:72px;padding:0 24px 0 16px;border-radius:999px;background:#FFFFFF;box-shadow:0 6px 0 rgba(90,74,56,.12)">
+            <div style="width:44px;height:44px;border-radius:999px;background:#FFF2CE;display:flex;align-items:center;justify-content:center;font-size:26px;color:#F5B324">★</div>
+            <div style="font-size:30px;color:#3B3226">48</div>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;gap:28px;min-height:0">
+          <div style="width:332px;display:flex;flex-direction:column;gap:16px;flex:none">
+            <div style="background:#FFFFFF;border:3px solid #FFE1D3;border-radius:32px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 22px rgba(90,74,56,.07)">
+              <div style="font-size:150px;line-height:1;color:#C9512A">ㄱ</div>
+              <div style="font-size:30px;color:#3B3226">기역</div>
+            </div>
+            <div style="background:#FFFFFF;border:3px solid #FFE1D3;border-radius:32px;padding:16px 20px;display:flex;align-items:center;gap:16px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 22px rgba(90,74,56,.07)">
+              <div style="width:72px;height:72px;border-radius:22px;background:#FFE1D3;display:flex;align-items:center;justify-content:center;font-size:40px;flex:none">🎒</div>
+              <div>
+                <div style="font-size:38px;color:#3B3226;line-height:1.1"><span style="color:#C9512A">가</span>방</div>
+                <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#8B7C68;margin-top:2px">대표 단어</div>
+              </div>
+            </div>
+            <div style="margin-top:auto;display:flex;align-items:center;gap:16px">
+              <div style="width:132px;height:132px;border-radius:999px;background:#FFC94D;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 7px 0 rgba(196,140,20,.55), 0 14px 26px rgba(90,74,56,.12);flex:none">
+                <svg width="52" height="52" viewBox="0 0 48 48" fill="none"><path d="M10 19h7l9-7v24l-9-7h-7z" fill="#5A4A38"/><path d="M32 17c3 3.5 3 10.5 0 14" stroke="#5A4A38" stroke-width="4.5" stroke-linecap="round"/><path d="M38 12c5.5 6 5.5 18 0 24" stroke="#5A4A38" stroke-width="4.5" stroke-linecap="round"/></svg>
+                <div style="font-size:19px;color:#5A4A38">소리 듣기</div>
+              </div>
+              <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#A79A88;line-height:1.6">누르면 「그—」<br>2번 누르면 「가방」</div>
+            </div>
+          </div>
+
+          <div style="flex:1;display:flex;flex-direction:column;gap:20px;min-width:0">
+            <div style="flex:1;border-radius:40px;background:#FFFDF8;border:3px solid #EFE6D6;position:relative;display:flex;align-items:center;justify-content:center">
+              <div style="position:absolute;top:24px;left:28px;height:52px;padding:0 22px;border-radius:999px;background:#FFE1D3;display:flex;align-items:center;font-size:24px;color:#C9512A">잘 봐요</div>
+              <svg width="400" height="400" viewBox="0 0 400 400" fill="none">
+                <rect x="20" y="20" width="360" height="360" rx="24" fill="none" stroke="#F0E7D7" stroke-width="3"/>
+                <path d="M200 20V380M20 200H380" stroke="#F0E7D7" stroke-width="2" stroke-dasharray="8 10"/>
+                <path d="M92 104 H308 L196 320" stroke="#FFE1D3" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M92 104 H308 L196 320" stroke="#C9512A" stroke-width="44" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="520" style="animation:dcDraw 2.8s ease-in-out infinite"/>
+                <circle cx="92" cy="104" r="30" fill="#C9512A"/>
+                <text x="92" y="118" text-anchor="middle" font-family="Jua" font-size="36" fill="#FFFFFF">1</text>
+              </svg>
+            </div>
+            <div style="height:112px;display:flex;align-items:center;gap:14px;flex:none">
+              <div style="width:112px;height:112px;border-radius:24px;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08)">
+                <svg width="46" height="46" viewBox="0 0 48 48" fill="none"><path d="M12 30c0-8 6-14 14-14 5 0 9 2 11 5" stroke="#7A6C5A" stroke-width="5" stroke-linecap="round"/><path d="M38 12v10H28" stroke="#7A6C5A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div style="font-size:18px;color:#7A6C5A">다시보기</div>
+              </div>
+              <div style="margin-left:auto;height:88px;padding:0 44px;border-radius:28px;background:#3F9E6C;color:#FFFFFF;font-size:32px;display:flex;align-items:center;gap:14px;box-shadow:0 6px 0 rgba(35,90,62,.45), 0 12px 24px rgba(90,74,56,.10)">
+                <svg width="36" height="36" viewBox="0 0 48 48" fill="none"><path d="M18 12l16 12-16 12z" fill="#FFFFFF"/></svg>따라 써 볼래요
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-family:'Gothic A1',sans-serif;font-weight:700;font-size:17px;color:#7A6C5A">2단계 · 따라쓰기 — 3층 점선 가이드 (아이가 그은 선이 위에 얹힘)</div>
+      <div style="width:1180px;height:820px;border-radius:28px;background:#FFF8EE;overflow:hidden;box-shadow:0 8px 0 rgba(90,74,56,.12),0 30px 60px rgba(60,48,36,.18);flex:none;padding:36px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px">
+        <div style="display:flex;align-items:center;gap:20px;flex:none">
+          <div style="width:88px;height:88px;border-radius:999px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08);flex:none">
+            <svg width="42" height="42" viewBox="0 0 48 48" fill="none"><path d="M29 12L17 24l12 12" stroke="#7A6C5A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="display:flex;gap:12px;margin-left:8px">
+            <div style="height:72px;padding:0 24px;border-radius:999px;background:#8FD8B0;display:flex;align-items:center;gap:12px">
+              <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M10 25l10 10 18-20" stroke="#1E6B47" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <div style="font-size:26px;color:#1E6B47">보기</div>
+            </div>
+            <div style="height:72px;padding:0 24px;border-radius:999px;background:#3F9E6C;display:flex;align-items:center;gap:12px;box-shadow:0 6px 0 rgba(35,90,62,.45)">
+              <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M32 8l8 8-20 20-10 2 2-10z" stroke="#FFFFFF" stroke-width="4" stroke-linejoin="round"/><path d="M8 42h32" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/></svg>
+              <div style="font-size:26px;color:#FFFFFF">따라쓰기</div>
+            </div>
+            <div style="height:72px;padding:0 24px;border-radius:999px;background:#F1E9DC;display:flex;align-items:center;gap:12px">
+              <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M24 6l5.5 11.5L42 19l-9 9 2 13-11-6-11 6 2-13-9-9 12.5-1.5z" stroke="#A79A88" stroke-width="4" stroke-linejoin="round"/></svg>
+              <div style="font-size:26px;color:#A79A88">혼자쓰기</div>
+            </div>
+          </div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:10px;height:72px;padding:0 24px 0 16px;border-radius:999px;background:#FFFFFF;box-shadow:0 6px 0 rgba(90,74,56,.12)">
+            <div style="width:44px;height:44px;border-radius:999px;background:#FFF2CE;display:flex;align-items:center;justify-content:center;font-size:26px;color:#F5B324">★</div>
+            <div style="font-size:30px;color:#3B3226">48</div>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;gap:28px;min-height:0">
+          <div style="width:332px;display:flex;flex-direction:column;gap:16px;flex:none">
+            <div style="background:#FFFFFF;border:3px solid #FFE1D3;border-radius:32px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 22px rgba(90,74,56,.07)">
+              <div style="font-size:150px;line-height:1;color:#C9512A">ㄱ</div>
+              <div style="font-size:30px;color:#3B3226">기역</div>
+            </div>
+            <div style="background:#FFFFFF;border:3px solid #FFE1D3;border-radius:32px;padding:16px 20px;display:flex;align-items:center;gap:16px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 22px rgba(90,74,56,.07)">
+              <div style="width:72px;height:72px;border-radius:22px;background:#FFE1D3;display:flex;align-items:center;justify-content:center;font-size:40px;flex:none">🎒</div>
+              <div>
+                <div style="font-size:38px;color:#3B3226;line-height:1.1"><span style="color:#C9512A">가</span>방</div>
+                <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#8B7C68;margin-top:2px">대표 단어</div>
+              </div>
+            </div>
+            <div style="margin-top:auto;display:flex;align-items:center;gap:16px">
+              <div style="width:132px;height:132px;border-radius:999px;background:#FFC94D;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 7px 0 rgba(196,140,20,.55), 0 14px 26px rgba(90,74,56,.12);flex:none">
+                <svg width="52" height="52" viewBox="0 0 48 48" fill="none"><path d="M10 19h7l9-7v24l-9-7h-7z" fill="#5A4A38"/><path d="M32 17c3 3.5 3 10.5 0 14" stroke="#5A4A38" stroke-width="4.5" stroke-linecap="round"/><path d="M38 12c5.5 6 5.5 18 0 24" stroke="#5A4A38" stroke-width="4.5" stroke-linecap="round"/></svg>
+                <div style="font-size:19px;color:#5A4A38">소리 듣기</div>
+              </div>
+              <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#A79A88;line-height:1.6">획을 그을 때마다<br>「그—」 소리가 같이</div>
+            </div>
+          </div>
+
+          <div style="flex:1;display:flex;flex-direction:column;gap:20px;min-width:0">
+            <div style="flex:1;border-radius:40px;background:#FFFDF8;border:3px solid #EFE6D6;position:relative;display:flex;align-items:center;justify-content:center">
+              <div style="position:absolute;top:24px;left:28px;height:52px;padding:0 22px;border-radius:999px;background:#FFE1D3;display:flex;align-items:center;font-size:24px;color:#C9512A">점선을 따라가요</div>
+              <svg width="400" height="400" viewBox="0 0 400 400" fill="none">
+                <rect x="20" y="20" width="360" height="360" rx="24" fill="none" stroke="#F0E7D7" stroke-width="3"/>
+                <path d="M200 20V380M20 200H380" stroke="#F0E7D7" stroke-width="2" stroke-dasharray="8 10"/>
+                <path d="M92 104 H308 L196 320" stroke="#C9512A" stroke-opacity="0.16" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M92 104 H308 L196 320" stroke="#C9512A" stroke-opacity="0.7" stroke-width="5" stroke-linecap="round" stroke-dasharray="4 16"/>
+                <path d="M92 104 H236" stroke="#C9512A" stroke-width="40" stroke-linecap="round"/>
+                <circle cx="92" cy="104" r="30" fill="#C9512A"/>
+                <text x="92" y="118" text-anchor="middle" font-family="Jua" font-size="36" fill="#FFFFFF">1</text>
+                <path d="M214 292 L196 320 L178 288" fill="#C9512A"/>
+              </svg>
+              <div style="position:absolute;right:28px;bottom:24px;font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#C4B7A3">아이가 그은 선 = 딥색 100% · 굵기 40 · 가이드 위 레이어</div>
+            </div>
+            <div style="height:112px;display:flex;align-items:center;gap:14px;flex:none">
+              <div style="width:112px;height:112px;border-radius:24px;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08)">
+                <svg width="46" height="46" viewBox="0 0 48 48" fill="none"><path d="M12 30c0-8 6-14 14-14 5 0 9 2 11 5" stroke="#7A6C5A" stroke-width="5" stroke-linecap="round"/><path d="M38 12v10H28" stroke="#7A6C5A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div style="font-size:18px;color:#7A6C5A">다시보기</div>
+              </div>
+              <div style="width:112px;height:112px;border-radius:24px;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08)">
+                <svg width="46" height="46" viewBox="0 0 48 48" fill="none"><path d="M14 34l20-20 8 8-20 20H14z" stroke="#7A6C5A" stroke-width="5" stroke-linejoin="round"/><path d="M10 42h30" stroke="#7A6C5A" stroke-width="5" stroke-linecap="round"/></svg>
+                <div style="font-size:18px;color:#7A6C5A">지우기</div>
+              </div>
+              <div style="width:112px;height:112px;border-radius:24px;background:#FFF2CE;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 6px 0 rgba(196,140,20,.30), 0 12px 24px rgba(90,74,56,.08)">
+                <svg width="46" height="46" viewBox="0 0 48 48" fill="none"><path d="M24 6c-7 0-12 5-12 12 0 5 3 8 5 11v5h14v-5c2-3 5-6 5-11 0-7-5-12-12-12z" stroke="#A9640A" stroke-width="4.5" stroke-linejoin="round"/><path d="M19 40h10" stroke="#A9640A" stroke-width="4.5" stroke-linecap="round"/></svg>
+                <div style="font-size:18px;color:#A9640A">힌트</div>
+              </div>
+              <div style="margin-left:auto;height:88px;padding:0 44px;border-radius:28px;background:#3F9E6C;color:#FFFFFF;font-size:32px;display:flex;align-items:center;box-shadow:0 6px 0 rgba(35,90,62,.45), 0 12px 24px rgba(90,74,56,.10)">다 했어요</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="font-family:'Gothic A1',sans-serif;font-weight:700;font-size:17px;color:#7A6C5A">3단계 · 혼자쓰기 — 아주 흐린 외곽선만 (번호·화살표 없음)</div>
+      <div style="width:1180px;height:820px;border-radius:28px;background:#FFF8EE;overflow:hidden;box-shadow:0 8px 0 rgba(90,74,56,.12),0 30px 60px rgba(60,48,36,.18);flex:none;padding:36px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px">
+        <div style="display:flex;align-items:center;gap:20px;flex:none">
+          <div style="width:88px;height:88px;border-radius:999px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08);flex:none">
+            <svg width="42" height="42" viewBox="0 0 48 48" fill="none"><path d="M29 12L17 24l12 12" stroke="#7A6C5A" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div style="display:flex;gap:12px;margin-left:8px">
+            <div style="height:72px;padding:0 24px;border-radius:999px;background:#8FD8B0;display:flex;align-items:center;gap:12px">
+              <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M10 25l10 10 18-20" stroke="#1E6B47" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <div style="font-size:26px;color:#1E6B47">보기</div>
+            </div>
+            <div style="height:72px;padding:0 24px;border-radius:999px;background:#8FD8B0;display:flex;align-items:center;gap:12px">
+              <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M10 25l10 10 18-20" stroke="#1E6B47" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <div style="font-size:26px;color:#1E6B47">따라쓰기</div>
+            </div>
+            <div style="height:72px;padding:0 24px;border-radius:999px;background:#3F9E6C;display:flex;align-items:center;gap:12px;box-shadow:0 6px 0 rgba(35,90,62,.45)">
+              <svg width="40" height="40" viewBox="0 0 48 48" fill="none"><path d="M24 6l5.5 11.5L42 19l-9 9 2 13-11-6-11 6 2-13-9-9 12.5-1.5z" fill="#FFFFFF"/></svg>
+              <div style="font-size:26px;color:#FFFFFF">혼자쓰기</div>
+            </div>
+          </div>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:10px;height:72px;padding:0 24px 0 16px;border-radius:999px;background:#FFFFFF;box-shadow:0 6px 0 rgba(90,74,56,.12)">
+            <div style="width:44px;height:44px;border-radius:999px;background:#FFF2CE;display:flex;align-items:center;justify-content:center;font-size:26px;color:#F5B324">★</div>
+            <div style="font-size:30px;color:#3B3226">48</div>
+          </div>
+        </div>
+
+        <div style="flex:1;display:flex;gap:28px;min-height:0">
+          <div style="width:332px;display:flex;flex-direction:column;gap:16px;flex:none">
+            <div style="background:#FFFFFF;border:3px solid #FFE1D3;border-radius:32px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:6px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 22px rgba(90,74,56,.07)">
+              <div style="font-size:150px;line-height:1;color:#C9512A">ㄱ</div>
+              <div style="font-size:30px;color:#3B3226">기역</div>
+            </div>
+            <div style="background:#FFFFFF;border:3px solid #FFE1D3;border-radius:32px;padding:16px 20px;display:flex;align-items:center;gap:16px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 22px rgba(90,74,56,.07)">
+              <div style="width:72px;height:72px;border-radius:22px;background:#FFE1D3;display:flex;align-items:center;justify-content:center;font-size:40px;flex:none">🎒</div>
+              <div>
+                <div style="font-size:38px;color:#3B3226;line-height:1.1"><span style="color:#C9512A">가</span>방</div>
+                <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#8B7C68;margin-top:2px">대표 단어</div>
+              </div>
+            </div>
+            <div style="margin-top:auto;display:flex;align-items:center;gap:16px">
+              <div style="width:132px;height:132px;border-radius:999px;background:#FFC94D;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 7px 0 rgba(196,140,20,.55), 0 14px 26px rgba(90,74,56,.12);flex:none">
+                <svg width="52" height="52" viewBox="0 0 48 48" fill="none"><path d="M10 19h7l9-7v24l-9-7h-7z" fill="#5A4A38"/><path d="M32 17c3 3.5 3 10.5 0 14" stroke="#5A4A38" stroke-width="4.5" stroke-linecap="round"/><path d="M38 12c5.5 6 5.5 18 0 24" stroke="#5A4A38" stroke-width="4.5" stroke-linecap="round"/></svg>
+                <div style="font-size:19px;color:#5A4A38">소리 듣기</div>
+              </div>
+              <div style="font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#A79A88;line-height:1.6">3단계에서도<br>같은 자리·같은 모양</div>
+            </div>
+          </div>
+
+          <div style="flex:1;display:flex;flex-direction:column;gap:20px;min-width:0">
+            <div style="flex:1;border-radius:40px;background:#FFFDF8;border:3px solid #EFE6D6;position:relative;display:flex;align-items:center;justify-content:center">
+              <div style="position:absolute;top:24px;left:28px;height:52px;padding:0 22px;border-radius:999px;background:#FFE1D3;display:flex;align-items:center;font-size:24px;color:#C9512A">이번엔 혼자!</div>
+              <svg width="400" height="400" viewBox="0 0 400 400" fill="none">
+                <rect x="20" y="20" width="360" height="360" rx="24" fill="none" stroke="#F0E7D7" stroke-width="3"/>
+                <path d="M200 20V380M20 200H380" stroke="#F0E7D7" stroke-width="2" stroke-dasharray="8 10"/>
+                <path d="M92 104 H308 L196 320" stroke="#C9512A" stroke-opacity="0.28" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M92 104 H308 L196 320" stroke="#FFFDF8" stroke-width="38" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="92" cy="104" r="9" fill="#C9512A" fill-opacity="0.35"/>
+              </svg>
+              <div style="position:absolute;right:28px;bottom:24px;font-family:'Gothic A1',sans-serif;font-weight:500;font-size:14px;color:#C4B7A3">외곽선 = 딥색 28% 굵기 44 위에 캔버스색 38 → 실선 두께 3</div>
+            </div>
+            <div style="height:112px;display:flex;align-items:center;gap:14px;flex:none">
+              <div style="width:112px;height:112px;border-radius:24px;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08)">
+                <svg width="46" height="46" viewBox="0 0 48 48" fill="none"><path d="M12 30c0-8 6-14 14-14 5 0 9 2 11 5" stroke="#7A6C5A" stroke-width="5" stroke-linecap="round"/><path d="M38 12v10H28" stroke="#7A6C5A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                <div style="font-size:18px;color:#7A6C5A">다시보기</div>
+              </div>
+              <div style="width:112px;height:112px;border-radius:24px;background:#FFFFFF;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 24px rgba(90,74,56,.08)">
+                <svg width="46" height="46" viewBox="0 0 48 48" fill="none"><path d="M14 34l20-20 8 8-20 20H14z" stroke="#7A6C5A" stroke-width="5" stroke-linejoin="round"/><path d="M10 42h30" stroke="#7A6C5A" stroke-width="5" stroke-linecap="round"/></svg>
+                <div style="font-size:18px;color:#7A6C5A">지우기</div>
+              </div>
+              <div style="width:112px;height:112px;border-radius:24px;background:#FFF2CE;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;box-shadow:0 6px 0 rgba(196,140,20,.30), 0 12px 24px rgba(90,74,56,.08)">
+                <svg width="46" height="46" viewBox="0 0 48 48" fill="none"><path d="M24 6c-7 0-12 5-12 12 0 5 3 8 5 11v5h14v-5c2-3 5-6 5-11 0-7-5-12-12-12z" stroke="#A9640A" stroke-width="4.5" stroke-linejoin="round"/><path d="M19 40h10" stroke="#A9640A" stroke-width="4.5" stroke-linecap="round"/></svg>
+                <div style="font-size:18px;color:#A9640A">힌트</div>
+              </div>
+              <div style="margin-left:auto;height:88px;padding:0 44px;border-radius:28px;background:#3F9E6C;color:#FFFFFF;font-size:32px;display:flex;align-items:center;box-shadow:0 6px 0 rgba(35,90,62,.45), 0 12px 24px rgba(90,74,56,.10)">다 했어요</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:1180px;background:#F6EEE1;border-radius:24px;padding:24px 28px;box-sizing:border-box;font-family:'Gothic A1',sans-serif;font-weight:500;font-size:15px;color:#7A6C5A;line-height:1.9">힌트 버튼은 1단계에 없음(이미 보여주는 중) · 지우기는 2·3단계에만 노출 · 세 단계 모두 버튼 자리는 <b>왼쪽부터 같은 순서</b>로 고정되어, 없을 때는 자리를 비우지 않고 뒤 버튼이 당겨오지 않습니다(다시보기는 항상 첫 칸).</div>
+  </div>
+
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1340,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  cats() {
+    return {
+      num: { deep:'#2F6BD8', soft:'#DDE9FF' },
+      con: { deep:'#C9512A', soft:'#FFE1D3' },
+      vow: { deep:'#0E7D66', soft:'#D3F0E7' },
+      syl: { deep:'#7B4FC0', soft:'#EADFFB' },
+      word:{ deep:'#A9640A', soft:'#FFEBCF' }
+    };
+  }
+
+  tabList(activeKey) {
+    const c = this.cats();
+    const defs = [
+      { key:'num', label:'숫자', icon:'123' },
+      { key:'con', label:'자음', icon:'ㄱㄴ' },
+      { key:'vow', label:'모음', icon:'ㅏㅗ' },
+      { key:'syl', label:'글자', icon:'가' },
+      { key:'word', label:'단어', icon:'🦋' }
+    ];
+    return defs.map(d => {
+      const on = d.key === activeKey;
+      const col = c[d.key];
+      return {
+        label: d.label,
+        icon: d.icon,
+        style: 'flex:1;height:96px;border-radius:26px;display:flex;align-items:center;justify-content:center;gap:12px;box-sizing:border-box;'
+          + (on
+            ? `background:${col.deep};box-shadow:0 6px 0 rgba(60,48,36,.22), 0 12px 22px rgba(90,74,56,.12);transform:translateY(-2px)`
+            : `background:${col.soft};box-shadow:0 5px 0 rgba(90,74,56,.10)`),
+        iconStyle: `width:54px;height:54px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:24px;`
+          + (on ? `background:rgba(255,255,255,.9);color:${col.deep}` : `background:#FFFFFF;color:${col.deep}`),
+        labelStyle: `font-size:30px;color:${on ? '#FFFFFF' : col.deep}`
+      };
+    });
+  }
+
+  stars(n, deep) {
+    return [0,1,2].map(i => ({
+      style: `font-size:16px;color:${i < n ? '#F5B324' : '#E7DDCC'}`
+    }));
+  }
+
+  numberItems() {
+    const deep = '#2F6BD8', soft = '#DDE9FF';
+    const reads = ['영','일','이','삼','사','오','육','칠','팔','구','십','십일','십이','십삼','십사','십오','십육','십칠','십팔','십구','이십'];
+    return reads.map((read, i) => {
+      const locked = i > 12;
+      const st = i < 6 ? 3 : (i < 10 ? 2 : (i < 13 ? 1 : 0));
+      return {
+        ch: String(i),
+        read,
+        starList: this.stars(st, deep),
+        cardStyle: 'height:150px;border-radius:28px;box-sizing:border-box;padding:14px 10px 12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;'
+          + (locked
+            ? 'background:#F1E9DC;border:3px solid #E7DDCC'
+            : `background:#FFFFFF;border:3px solid ${soft};box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 22px rgba(90,74,56,.07)`),
+        glyphStyle: `font-size:58px;line-height:1;color:${deep};${locked ? 'opacity:.35' : ''}`,
+        readStyle: `font-size:19px;color:${locked ? '#B6A994' : '#7A6C5A'};${locked ? 'opacity:.6' : ''}`,
+        starRowStyle: `display:${locked ? 'none' : 'flex'};gap:3px`,
+        lockStyle: `display:${locked ? 'flex' : 'none'};align-items:center;justify-content:center;height:22px`
+      };
+    });
+  }
+
+  wordItems() {
+    const deep = '#A9640A', soft = '#FFEBCF';
+    const data = [
+      ['나비','🦋',3],['사과','🍎',3],['우유','🥛',3],['구름','☁️',2],
+      ['토끼','🐰',2],['바나나','🍌',2],['자동차','🚗',1],['모자','🧢',1],
+      ['기린','🦒',0],['물고기','🐟',0],['수박','🍉',0],['별','⭐',0],
+      ['가방','🎒',-1],['우산','☂️',-1],['눈사람','⛄',-1],['꽃','🌷',-1]
+    ];
+    return data.map(([ch, emoji, st]) => {
+      const locked = st < 0;
+      return {
+        ch, emoji,
+        starList: this.stars(Math.max(st,0), deep),
+        cardStyle: 'height:112px;border-radius:28px;box-sizing:border-box;padding:0 18px;display:flex;align-items:center;gap:16px;'
+          + (locked
+            ? 'background:#F1E9DC;border:3px solid #E7DDCC'
+            : `background:#FFFFFF;border:3px solid ${soft};box-shadow:0 6px 0 rgba(90,74,56,.12), 0 12px 22px rgba(90,74,56,.07)`),
+        emojiStyle: `width:64px;height:64px;border-radius:20px;background:${locked ? '#EBE2D3' : soft};display:flex;align-items:center;justify-content:center;font-size:34px;${locked ? 'opacity:.5' : ''}`,
+        glyphStyle: `font-size:38px;line-height:1.1;color:${deep};${locked ? 'opacity:.35' : ''}`,
+        starRowStyle: `display:${locked ? 'none' : 'flex'};gap:3px;margin-top:2px`,
+        lockStyle: `display:${locked ? 'flex' : 'none'};align-items:center;justify-content:center;width:40px`
+      };
+    });
+  }
+
+  palette() {
+    const chip = (bg, extra) => `height:64px;background:${bg};${extra || ''}`;
+    const g = (title, items) => ({ title, items: items.map(it => ({ name: it[0], hex: it[1], use: it[2], chipStyle: chip(it[1], it[3]) })) });
+    return [
+      g('배경 · 면', [
+        ['보드 배경','#EFE7DA','시안 바깥'],
+        ['앱 배경','#FFF8EE','화면 바탕'],
+        ['카드','#FFFFFF','카드·패널'],
+        ['캔버스','#FFFDF8','쓰기 영역'],
+        ['가라앉은 면','#F6EEE1','설명 박스']
+      ]),
+      g('텍스트 위계', [
+        ['본문 강','#3B3226','제목·글자'],
+        ['본문 중','#7A6C5A','읽는 법'],
+        ['본문 약','#A79A88','비활성'],
+        ['반전','#FFFFFF','컬러면 위']
+      ]),
+      g('카테고리 강조색 — 소프트(면) / 딥(획·아이콘)', [
+        ['숫자 딥','#2F6BD8','획·탭 활성'],
+        ['숫자 소프트','#DDE9FF','탭·카드 테두리'],
+        ['자음 딥','#C9512A','획·탭 활성'],
+        ['자음 소프트','#FFE1D3','탭·카드 테두리'],
+        ['모음 딥','#0E7D66','획·탭 활성'],
+        ['모음 소프트','#D3F0E7','탭·카드 테두리'],
+        ['글자 딥','#7B4FC0','획·탭 활성'],
+        ['글자 소프트','#EADFFB','탭·카드 테두리'],
+        ['단어 딥','#A9640A','획·탭 활성'],
+        ['단어 소프트','#FFEBCF','탭·카드 테두리']
+      ]),
+      g('상태 · 보상', [
+        ['활성','#3F9E6C','진행 중 단계'],
+        ['완료','#8FD8B0','끝낸 단계'],
+        ['잠금 면','#F1E9DC','잠긴 카드'],
+        ['잠금 선','#B6A994','자물쇠'],
+        ['별·보상','#F5B324','별, 컨페티'],
+        ['소리 버튼','#FFC94D','소리 듣기 전용']
+      ])
+    ];
+  }
+
+  typeScaleData() {
+    const rows = [
+      ['가',96,'Jua 96 / 1.0','캔버스 옆 대표 글자'],
+      ['다 했어요',44,'Jua 44 / 1.2','오버레이 문구'],
+      ['오늘은 뭐 써 볼까?',34,'Jua 34 / 1.3','화면 제목'],
+      ['따라쓰기',30,'Jua 30 / 1.3','탭·단계·CTA'],
+      ['기역',24,'Jua 24 / 1.4','이름·보조 라벨'],
+      ['다시보기',18,'Jua 18 / 1.4','아이콘 버튼 라벨(최소)'],
+      ['부모 설정 · 단어 추가',16,'Gothic A1 700 16','부모 화면 전용']
+    ];
+    return rows.map(([sample, size, spec, use]) => ({
+      sample, spec, use,
+      sampleStyle: `font-family:${size === 16 ? "'Gothic A1',sans-serif;font-weight:700" : "'Jua',sans-serif"};font-size:${Math.min(size,48)}px;color:#3B3226;line-height:1.2`
+    }));
+  }
+
+  spacing() {
+    return [4,8,12,16,20,24,32,40,56,72].map(v => ({
+      v: String(v),
+      barStyle: `width:26px;height:${v + 8}px;border-radius:6px;background:#D9C9AE`
+    }));
+  }
+
+  renderVals() {
+    return {
+      paletteGroups: this.palette(),
+      typeScale: this.typeScaleData(),
+      spacingScale: this.spacing(),
+      tabs: this.tabList('num'),
+      tabsWord: this.tabList('word'),
+      numbers: this.numberItems(),
+      words: this.wordItems()
+    };
+  }
+}
+</script>
+</body>
+</html>

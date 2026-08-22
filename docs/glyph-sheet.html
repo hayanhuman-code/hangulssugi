@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>획 데이터 점검표</title>
+<style>
+  body { margin:0; background:#EFE7DA; font-family:'Gothic A1', sans-serif; }
+  h1 { font-size:20px; color:#3B3226; padding:16px 16px 0; margin:0; }
+  p.note { font-size:13px; color:#7A6C5A; padding:4px 16px 0; margin:0; }
+  #out { display:flex; flex-wrap:wrap; gap:8px; padding:14px; }
+  .cell { width:150px; background:#FFFDF8; border-radius:14px; padding:6px; text-align:center;
+          font-size:11px; color:#7A6C5A; }
+</style>
+</head>
+<body>
+<h1>획 데이터 점검표</h1>
+<p class="note">모든 학습 항목의 획을 순서대로(연한 색 → 진한 색) 그려 본 것. 글자 모양이나 획 순서를 손볼 때 여기서 확인한다.</p>
+<div id="out"></div>
+<script src="../js/glyphs.js"></script>
+<script src="../js/curriculum.js"></script>
+<script>
+(function () {
+  var out = document.getElementById('out');
+  Curriculum.tabs.forEach(function (tab) {
+    tab.items.forEach(function (item) {
+      var g = Glyphs.forText(item.ch);
+      var paths = g.strokes.map(function (d, i) {
+        var op = 0.35 + 0.65 * (i + 1) / g.strokes.length;
+        return '<path d="' + d + '" stroke="' + tab.deep + '" stroke-opacity="' + op +
+          '" stroke-width="' + (110 * g.k) + '" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+      }).join('');
+      var cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.innerHTML = '<svg width="140" height="140" viewBox="' + g.viewBox +
+        '" preserveAspectRatio="xMidYMid meet">' + paths + '</svg>' +
+        '<div>' + item.ch + ' · ' + g.strokes.length + '획</div>';
+      out.appendChild(cell);
+    });
+  });
+})();
+</script>
+</body>
+</html>
