@@ -150,6 +150,21 @@
   var TALL_WIDE = ['ㅐ', 'ㅒ', 'ㅔ', 'ㅖ'];          // 세로획이 둘이라 폭이 더 필요한 모음
   var WIDE = ['ㅗ', 'ㅛ', 'ㅜ', 'ㅠ', 'ㅡ'];        // 가로모음
 
+  /* 가로모음은 1000 상자 안에서 위(ㅗㅛ) 또는 아래(ㅜㅠ) 3분의 1에만 잉크가 있다.
+     box() 는 상자 전체를 매핑하므로 그대로 넣으면 잉크가 상자의 3분의 1만 차지한다.
+     음절로 줄어들면 짧은 세로획이 98 까지 짧아지는데 획 굵기가 110 이라
+     선이 아니라 점으로 보인다 — "곰"·"꽃"의 ㅗ 가 가로선 하나가 된다.
+     그래서 잉크가 상자를 꽉 채우도록 늘려 담는다. (ㅡ 는 높이가 0 이라 그대로 둔다) */
+  var WIDE_INK = { 'ㅗ': [180, 530], 'ㅛ': [180, 530], 'ㅜ': [470, 820], 'ㅠ': [470, 820] };
+
+  function boxV(jung, paths, x0, y0, x1, y1) {
+    var ink = WIDE_INK[jung];
+    if (!ink) return box(paths, x0, y0, x1, y1);
+    var k = (y1 - y0) / (ink[1] - ink[0]);
+    var ty = y0 - ink[0] * k;
+    return box(paths, x0, ty, x1, ty + 1000 * k);
+  }
+
   function decompose(ch) {
     var code = ch.charCodeAt(0) - 0xAC00;
     if (code < 0 || code > 11171) return null;
@@ -182,10 +197,11 @@
       var h = VOW[parts[0]], v = VOW[parts[1]];
       if (!h || !v) return null;
       if (!f) {
-        return cat(box(c, 80, 70, 470, 470), box(h, 50, 440, 545, 905), box(v, 555, 50, 950, 950));
+        return cat(box(c, 80, 70, 470, 470), boxV(parts[0], h, 50, 620, 545, 880),
+                   box(v, 555, 50, 950, 950));
       }
-      return cat(box(c, 80, 50, 445, 375), box(h, 50, 350, 525, 625),
-                 box(v, 540, 40, 940, 625), box(f, 200, 630, 800, 955));
+      return cat(box(c, 80, 50, 445, 375), boxV(parts[0], h, 50, 380, 525, 610),
+                 box(v, 540, 40, 940, 625), box(f, 200, 645, 800, 960));
     }
 
     var vow = VOW[jung];
@@ -193,8 +209,9 @@
 
     /* 가로모음 — 초성이 위, 모음이 아래 */
     if (WIDE.indexOf(jung) >= 0) {
-      if (!f) return cat(box(c, 240, 60, 760, 480), box(vow, 60, 440, 940, 930));
-      return cat(box(c, 290, 50, 710, 370), box(vow, 60, 350, 940, 630), box(f, 265, 620, 735, 955));
+      if (!f) return cat(box(c, 240, 60, 760, 480), boxV(jung, vow, 60, 620, 940, 880));
+      return cat(box(c, 290, 40, 710, 340), boxV(jung, vow, 60, 375, 940, 570),
+                 box(f, 265, 650, 735, 960));
     }
 
     /* 세로모음 — 초성이 왼쪽, 모음 세로획이 글자 높이를 다 쓴다 */
