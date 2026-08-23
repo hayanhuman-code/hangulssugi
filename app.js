@@ -278,7 +278,9 @@ function renderGrid() {
   const grid = document.getElementById('numberGrid');
   const list = itemsOf(STATE.category);
   const isWord = STATE.category === 'word';
-  grid.className = 'number-grid' + (isWord ? ' cols-5 wide-cards' : '');
+  // 한 화면에 다 들어가지 않는 탭은 위에서부터 채우고 그리드 안에서 스크롤한다
+  const many = list.length > 24;
+  grid.className = 'number-grid' + (isWord ? ' cols-5 wide-cards' : '') + (many ? ' scrolly' : '');
   grid.setAttribute('aria-label', '연습할 ' + categoryOf(STATE.category).label + ' 고르기');
   grid.innerHTML = '';
 
