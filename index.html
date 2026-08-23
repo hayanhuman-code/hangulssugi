@@ -48,13 +48,16 @@
     font-family: 'Gothic A1', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
     font-weight: 700;
     overflow: hidden;
-    height: 100vh; width: 100vw;
+    /* 모바일 브라우저의 100vh 는 주소창·툴바가 숨겨진 상태의 높이다. 실제로 보이는
+       영역은 그보다 작아서, 화면 아래쪽(버튼 바)이 툴바에 가려진다. 스크롤도 막아 두었으니
+       아이는 '다 했어요' 를 누를 방법이 없다. dvh 는 지금 실제로 보이는 높이다. */
+    height: 100vh; height: 100dvh; width: 100vw;
     touch-action: none;
     -webkit-user-select: none;
     background: var(--bg);
     color: var(--ink);
   }
-  .app { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+  .app { width: 100vw; height: 100vh; height: 100dvh; position: relative; overflow: hidden; }
   .ico-svg { display: block; flex: 0 0 auto; }
 
   /* ---------- 홈 화면 ---------- */
@@ -83,14 +86,18 @@
   /* ---------- 카테고리 탭 ---------- */
   .category-tabs { display: flex; gap: 12px; margin-bottom: 20px; }
   .category-tab {
-    flex: 1; height: 72px; border: none; border-radius: 999px; cursor: pointer;
+    flex: 1; min-width: 0; height: 72px; border: none; border-radius: 999px; cursor: pointer;
     font-family: inherit; font-weight: 700; font-size: 30px;
     display: flex; align-items: center; justify-content: center; gap: 12px;
     box-shadow: 0 5px 0 rgba(90,74,56,.10);
+    /* '숫자'가 '숫/자'로 접히면 탭이 두 줄이 된다. 폭이 모자라면 접는 게 아니라
+       글자를 줄여야 한다 — 줄이는 값은 아래 화면별 분기에 있다. */
+    white-space: nowrap;
   }
   .category-tab .tab-icon {
     min-width: 44px; height: 44px; padding: 0 8px; border-radius: 16px; background: #fff;
     font-size: 22px; display: flex; align-items: center; justify-content: center;
+    white-space: nowrap; flex: 0 0 auto;
   }
   .category-tab.on { box-shadow: 0 6px 0 rgba(90,74,56,.18); }
   .category-tab:focus-visible { outline: 4px solid var(--step-now); outline-offset: 3px; }
@@ -149,6 +156,8 @@
 
   /* 단어는 항목이 길어 카드를 넓게 눕힌다 */
   .grid-page.cols-4 .number-card { flex-direction: row; gap: 16px; justify-content: flex-start; padding: 0 20px; }
+  /* 두 칸 그리드는 카드가 넓다 — 폰이든 태블릿 세로든 가로 배치가 맞다 */
+  .grid-page.cols-2 .number-card { flex-direction: row; gap: 12px; justify-content: flex-start; padding: 0 14px; }
   .number-card .word-emoji {
     width: 64px; height: 64px; border-radius: 20px; font-size: 34px;
     display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
@@ -493,9 +502,7 @@
     .number-card .card-stars { top: 5px; right: 6px; gap: 1px; }
     .number-card .card-lock { bottom: 5px; right: 6px; }
     .number-card .word-emoji { font-size: 26px; }
-    .grid-page.cols-2 .number-card { flex-direction: row; gap: 10px; justify-content: flex-start; padding: 0 12px; }
-
-  }
+    }
 
   /* 연습 화면은 폭뿐 아니라 '높이'가 모자랄 때도 줄여야 한다.
      폰을 가로로 들면 844x390 처럼 폭은 넓고 높이만 낮아, 폭 기준만으로는
@@ -515,6 +522,13 @@
     .info-panel { gap: 8px; min-width: 0; }
     .info-card { padding: 8px; min-width: 0; flex: 1 1 0; }
     .info-num { font-size: 34px; }
+    /* 폰에서는 정보 패널이 화면의 3분의 1을 먹었다. 아이가 쓰는 곳은 캔버스다 —
+       뜻 그림과 설명을 줄여 그 높이를 캔버스에 돌려준다. */
+    .info-ko, .info-native { font-size: 16px; }
+    .info-en { font-size: 11px; }
+    .info-objects .emoji { font-size: 22px; }
+    .info-objects .obj-caption { font-size: 14px; margin-top: 4px; }
+    .info-objects.zero { font-size: 13px; }
     .sound-btn { width: 56px; height: 56px; flex: 0 0 auto; font-size: 10px; gap: 0; }
     .sound-btn .ico-svg { width: 22px; height: 22px; }
 
@@ -535,16 +549,52 @@
     .step-dot:not(.active) > span:not(.step-num) { display: none; }
   }
 
-  /* 반응형: 작은 태블릿 세로 */
+  /* 반응형: 세로로 세운 화면 (태블릿 세로 포함).
+     본문을 한 줄로 세우는 것만으로는 모자란다. 폭이 절반으로 줄었는데 머리말·버튼·
+     정보 패널이 가로 기준 크기 그대로면 오른쪽으로 밀려 잘린다 — 600px 폭에서
+     단계 칩과 CTA 가 화면 밖으로 나갔고 소리 듣기 버튼은 아예 밀려 사라졌다.
+     열 수는 여기서 정하지 않는다. app.js 의 PAGE_SHAPE_PORTRAIT 가 정한다. */
+  /* 여기에는 '배치'만 둔다. 크기를 줄이는 선언은 아래 태블릿 전용 블록으로 간다 —
+     이 블록은 폰 분기보다 뒤에 있어서, 여기에 크기를 적으면 폰에서도 그 값이 이긴다.
+     실제로 폰의 큰 글자(34px)가 60px 로, 소리 버튼(56px)이 112px 로 되살아나
+     캔버스를 129px 까지 밀어냈다. */
   @media (max-aspect-ratio: 1/1) {
-    .grid-page.cols-7 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
     .practice-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
-    .info-panel { flex-direction: row; align-items: stretch; }
-    .info-num { font-size: 60px; }
-    .sound-btn { margin-top: 0; margin-left: auto; width: 112px; height: 112px; }
-    /* 좁은 화면에서는 단계 칩이 줄바꿈되지 않도록 줄인다 */
-    .step-dot { height: 60px; padding: 0 16px; font-size: 21px; gap: 8px; }
-    .step-dot .step-num { width: 32px; height: 32px; font-size: 18px; }
+    /* 정보 패널이 가로로 눕으면 카드는 남는 폭을 나눠 가져야 한다.
+       내용 폭 그대로 두면 긴 설명 한 줄이 소리 듣기 버튼을 화면 밖으로 밀어낸다. */
+    .info-panel { flex-direction: row; align-items: stretch; min-width: 0; }
+    .info-card { flex: 1 1 0; min-width: 0; }
+    .sound-btn { margin-top: 0; margin-left: 0; }
+  }
+
+  /* 태블릿 세로 (폰보다는 넓다). 폰 분기(560px 이하)가 잡아 주지 못하는 구간이다. */
+  @media (max-aspect-ratio: 1/1) and (min-width: 561px) {
+    .info-card { padding: 14px; }
+    .info-num { font-size: 52px; }
+    .info-ko, .info-native, .info-objects .obj-caption { font-size: 20px; }
+    .sound-btn { width: 96px; height: 96px; font-size: 15px; }
+    .sound-btn .ico-svg { width: 38px; height: 38px; }
+
+    .home { padding: 24px 20px 12px; }
+    .home-title { font-size: 28px; }
+    .category-tabs { gap: 8px; }
+    .category-tab { height: 62px; font-size: 20px; gap: 7px; padding: 0 6px; }
+    .category-tab .tab-icon { min-width: 34px; height: 34px; padding: 0 6px; font-size: 15px; border-radius: 12px; }
+    .grid-page { gap: 14px; }
+
+    .practice { padding: 20px; }
+    .practice-header { height: 72px; margin-bottom: 16px; }
+    .btn-back { width: 72px; height: 72px; }
+    .header-spacer { display: none; }
+    .step-indicator { gap: 8px; min-width: 0; }
+    .step-dot { height: 60px; padding: 0 12px; font-size: 18px; gap: 7px; min-width: 0; overflow: hidden; }
+    .step-dot .step-num { width: 30px; height: 30px; font-size: 16px; }
+
+    .action-bar { height: 92px; margin-top: 14px; gap: 10px; }
+    .btn-icon, .btn-slot { width: 88px; height: 88px; }
+    .btn-icon { font-size: 15px; }
+    .btn-icon .ico-svg { width: 36px; height: 36px; }
+    .btn-cta { height: 76px; font-size: 24px; padding: 0 24px; min-width: 0; }
   }
 </style>
 </head>
