@@ -245,6 +245,11 @@ tint (inactive tab, card border, emoji chip). Every deep colour clears 4.5:1 aga
 | 글자 | `#7B4FC0` | `#EADFFB` | 5.55 |
 | 단어 | `#A9640A` | `#FFEBCF` | 4.58 |
 
+단어 is the one exception to "deep colour fills the active tab": at full tab size `#A9640A` sinks
+into a muddy brown next to the other four, so the tab fill alone uses `#B87007` (`tabColor`, 3.92
+against white — the chip's label is 30px bold, well past the large-text threshold). Strokes, card
+glyphs and borders still use the deep `#A9640A`.
+
 ### Per-Number Pastels & Emojis
 Numbers no longer carry 21 different stroke colours. The stroke and the card glyph use the 숫자
 deep colour `#2F6BD8`; the per-number pastel survives only as the card's border and emoji chip,

@@ -268,7 +268,7 @@ function renderCategoryTabs() {
     const tab = document.createElement('button');
     tab.type = 'button';
     tab.className = 'category-tab' + (on ? ' on' : '');
-    tab.style.background = on ? cat.color : cat.bgColor;
+    tab.style.background = on ? (cat.tabColor || cat.color) : cat.bgColor;
     tab.style.color = on ? '#fff' : cat.color;
     tab.setAttribute('aria-pressed', on ? 'true' : 'false');
     tab.innerHTML = `<span class="tab-icon" style="color:${cat.color}" aria-hidden="true">${cat.icon}</span>${cat.label}`;
