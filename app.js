@@ -364,6 +364,9 @@ function strokeW(data) { return data.strokeWidth || 30; }
 // 점선 가이드의 점 간격. 화살표를 이 주기에 맞춰 놓아야 점 위에 겹쳐 뭉개지지 않는다.
 const DOT_PERIOD = 18;
 
+// SVG 안의 글자(획 번호)는 CSS 를 상속하지 않으므로 따로 지정한다.
+const FONT_FAMILY = "'Gothic A1', 'Apple SD Gothic Neo', sans-serif";
+
 function renderStepView(svg, data) {
   svg.innerHTML = '';
   // 큰 채워진 숫자
@@ -428,7 +431,7 @@ function playStrokeDemo(auto) {
     const label = svgEl('text', {
       x: m.x, y: m.y + 6, 'text-anchor': 'middle',
       'font-size': 18, 'font-weight': 'bold',
-      fill: data.color, 'font-family': 'Jua, sans-serif'
+      fill: data.color, 'font-family': FONT_FAMILY
     });
     label.textContent = (i + 1);
     overlay.appendChild(label);
@@ -498,7 +501,7 @@ function renderStepTrace(svg, data) {
     const label = svgEl('text', {
       x: m.x, y: m.y + 5, 'text-anchor': 'middle',
       'font-size': 14, 'font-weight': 'bold', fill: 'white',
-      'font-family': 'Jua, sans-serif'
+      'font-family': FONT_FAMILY
     });
     label.textContent = (i + 1);
     svg.appendChild(label);
