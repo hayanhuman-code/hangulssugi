@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>숫자 쓰기 연습 🎈</title>
+<title>한글·숫자 쓰기 연습 🎈</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Gaegu:wght@700&family=Jua&display=swap" rel="stylesheet">
@@ -94,6 +94,45 @@
   .number-card .card-stars .star { color: #FFD93D; }
   .number-card .card-stars .star.empty { color: #E5E5EA; }
 
+  /* ---------- 카테고리 탭 ---------- */
+  .category-tabs { display: flex; gap: 10px; margin-bottom: 16px; }
+  .category-tab {
+    flex: 1; height: 62px; border: none; border-radius: 20px; cursor: pointer;
+    font-family: inherit; font-weight: 700; font-size: 22px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 5px 0 rgba(0,0,0,0.08);
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .category-tab .tab-icon {
+    width: 36px; height: 36px; border-radius: 12px; background: white;
+    font-size: 16px; display: flex; align-items: center; justify-content: center;
+  }
+  .category-tab.on { transform: translateY(-2px); box-shadow: 0 6px 0 rgba(0,0,0,0.16); }
+  .category-tab.on .tab-icon { background: rgba(255,255,255,0.9); }
+  .category-tab:focus-visible { outline: 4px solid #A9C7FF; outline-offset: 3px; }
+
+  /* 단어는 항목이 길어 카드를 넓게 눕힌다 */
+  .number-grid.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .number-grid.wide-cards .number-card { aspect-ratio: auto; min-height: 92px; }
+  .number-card .word-emoji { font-size: 26px; line-height: 1; margin-bottom: 2px; }
+  .number-card .num.word-text { font-size: 30px; }
+
+  /* 잠금 — 평평하게 가라앉히고 빨강·회색 경고 톤은 쓰지 않는다 */
+  .number-card.locked {
+    background: #F1ECE4; box-shadow: none; cursor: default; border-color: transparent;
+  }
+  .number-card.locked .num, .number-card.locked .word-emoji { opacity: 0.35; }
+  .number-card.locked .ko { color: #b6a994; }
+  .number-card.locked:active { transform: none; box-shadow: none; }
+  .number-card .card-lock { position: absolute; bottom: 6px; right: 8px; font-size: 14px; opacity: 0.5; }
+  @keyframes card-bounce {
+    0%   { transform: translateY(0) scale(1); }
+    35%  { transform: translateY(-8px) scale(1.03); }
+    70%  { transform: translateY(0) scale(0.99); }
+    100% { transform: translateY(0) scale(1); }
+  }
+  .number-card.bounce { animation: card-bounce 420ms ease-out; }
+
   /* ---------- 연습 화면 ---------- */
   .practice {
     height: 100%; display: none; flex-direction: column;
@@ -169,6 +208,8 @@
     font-size: 150px; font-weight: 700; line-height: 0.9;
     margin: 0;
   }
+  /* '강아지' 같은 여러 글자는 한 칸에 다 들어가지 않는다 */
+  .info-num.compact { font-size: 76px; line-height: 1.1; }
   .info-names {
     display: flex; align-items: baseline; gap: 10px;
     margin: 2px 0 6px;
@@ -439,10 +480,11 @@
   <!-- 홈 화면 -->
   <div class="home" id="home">
     <div class="home-header">
-      <h1 class="home-title">숫자 쓰기 연습</h1>
-      <div class="home-subtitle">숫자를 골라볼까요?</div>
+      <h1 class="home-title">한글·숫자 쓰기 연습</h1>
+      <div class="home-subtitle" id="homeSubtitle">숫자를 골라볼까요?</div>
       <div class="stars-collected" id="totalStars">⭐ <span id="totalStarsNum">0</span></div>
     </div>
+    <div class="category-tabs" id="categoryTabs" role="group" aria-label="배울 것 고르기"></div>
     <div class="number-grid" id="numberGrid" role="list" aria-label="연습할 숫자 고르기"></div>
   </div>
 
@@ -503,6 +545,7 @@
 </div>
 
 <script src="number-data.js"></script>
+<script src="hangul-data.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
