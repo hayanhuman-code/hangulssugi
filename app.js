@@ -284,6 +284,10 @@ function renderCategoryTabs() {
 }
 
 // 한 쪽에 담는 카드 수와 열 수. 시안의 그리드 대응 규칙 그대로다.
+//
+// 좁은 화면은 표를 따로 둔다. 열 수만 CSS 로 줄이고 per 를 그대로 두면
+// 한 쪽에 들어갈 카드가 늘어난 행 수만큼 세로로 넘쳐, 아래 줄이 잘려
+// 손이 닿지 않는다 — 폰 세로에서 실제로 그랬다. 열과 쪽당 개수는 함께 정해야 한다.
 const PAGE_SHAPE = {
   number:    { cls: 'cols-7', per: 21 },
   consonant: { cls: 'cols-7', per: 21 },
@@ -291,11 +295,51 @@ const PAGE_SHAPE = {
   syllable:  { cls: 'cols-5', per: 15 },
   word:      { cls: 'cols-4', per: 16 }
 };
+const PAGE_SHAPE_NARROW = {
+  number:    { cls: 'cols-4' },
+  consonant: { cls: 'cols-4' },
+  vowel:     { cls: 'cols-4' },
+  syllable:  { cls: 'cols-3' },
+  word:      { cls: 'cols-2' }
+};
+
+// CSS 의 좁은 화면 분기와 같은 조건을 쓴다. 한쪽만 바뀌면 열이 어긋난다.
+const NARROW = '(max-width: 560px)';
+function isNarrow() { return window.matchMedia(NARROW).matches; }
+
+// 열 수는 위 표(시안의 규칙)에서 오고, 행 수는 남은 높이에서 정한다.
+//
+// per 를 표에 박아 두면 화면이 낮을 때 아래 줄이 그리드 밖으로 밀려 손이 닿지 않는다 —
+// 폰 가로(844x390)가 그랬다. 폭이 넓어 7열 표를 쓰는데 높이는 한 줄치도 안 됐다.
+// 그래서 줄 수를 남은 높이에서 구하고, 줄 높이를 1fr 로 깔아 남은 높이를 정확히 나눠 갖게 한다.
+// 이러면 카드가 그리드 밖으로 나가는 일 자체가 생기지 않는다.
+const MIN_CARD_H = 96;   // 네 살 손가락이 누를 수 있는 최소 칸 높이
+const MAX_ROWS = 5;      // 그보다 많으면 한 장에 너무 빽빽해진다
+
+function isNarrow() { return window.matchMedia(NARROW).matches; }
+
+function rowsFor() {
+  const viewport = document.querySelector('.grid-viewport');
+  const h = viewport ? viewport.clientHeight : 0;
+  if (!h) return 3;
+  return Math.max(1, Math.min(MAX_ROWS, Math.floor(h / MIN_CARD_H)));
+}
+
+function pageShape() {
+  const table = isNarrow() ? PAGE_SHAPE_NARROW : PAGE_SHAPE;
+  const base = table[STATE.category] || table.number;
+  const cols = Number(base.cls.slice(5)) || 4;
+  // 시안이 정한 줄 수를 기본으로 삼고, 화면이 그만큼 안 되면 그때만 줄인다.
+  // 넓은 화면에서 배치가 설계와 달라지지 않게 하려는 것이다.
+  const wanted = base.per ? Math.ceil(base.per / cols) : MAX_ROWS;
+  const rows = Math.min(wanted, rowsFor());
+  return { cls: base.cls, per: cols * rows, rows: rows };
+}
 
 function renderGrid() {
   const track = document.getElementById('numberGrid');
   const list = itemsOf(STATE.category);
-  const shape = PAGE_SHAPE[STATE.category] || PAGE_SHAPE.number;
+  const shape = pageShape();
   track.setAttribute('aria-label', '연습할 ' + categoryOf(STATE.category).label + ' 고르기');
 
   const cards = list.map((data, index) => buildCard(data, index, list));
@@ -309,6 +353,8 @@ function renderGrid() {
   for (let p = 0; p < STATE.pages; p++) {
     const page = document.createElement('div');
     page.className = 'grid-page ' + shape.cls;
+    // 남은 높이를 줄 수로 정확히 나눈다 (grid-auto-rows 의 고정 높이를 대신한다)
+    page.style.gridTemplateRows = 'repeat(' + shape.rows + ', minmax(0, 1fr))';
     cards.slice(p * shape.per, (p + 1) * shape.per).forEach(c => page.appendChild(c));
     track.appendChild(page);
   }
@@ -1210,6 +1256,14 @@ window.addEventListener('load', () => {
   });
 
   window.addEventListener('resize', resizeCanvas);
+
+  // 화면이 바뀌면 들어가는 줄 수도 바뀐다. 홈이 떠 있을 때만 다시 배치한다.
+  let regridTimer = null;
+  window.addEventListener('resize', () => {
+    if (!document.getElementById('home').classList.contains('active')) return;
+    clearTimeout(regridTimer);
+    regridTimer = setTimeout(() => { STATE.page = 0; renderGrid(); }, 120);
+  });
 });
 
 // 전역 노출
