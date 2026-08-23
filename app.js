@@ -1,22 +1,102 @@
 // ============================================================
-// 5살 아이 숫자 쓰기 연습 앱
+// 5살 아이 쓰기 연습 앱 — 숫자와 한글
+//
+// 숫자와 한글은 항목 형태가 같다.
+//   { id, category, ko, color, bgColor, strokeWidth, viewBox, strokes:[{ d, start }] }
+// 그래서 캔버스·획순 데모·그리기는 둘을 구분하지 않는다. 갈라지는 곳은
+// 홈 화면의 카테고리 탭과, 왼쪽 정보 패널의 내용 두 군데뿐이다.
 // ============================================================
 
+// ---------- 진도 ----------
+const PROGRESS_KEY = 'writingProgress';
+
+function loadProgress() {
+  try {
+    const cur = localStorage.getItem(PROGRESS_KEY);
+    if (cur) return JSON.parse(cur);
+    // 숫자만 있던 시절의 기록을 그대로 이어받는다 (키가 '0'~'20' 이라 한글과 겹치지 않는다)
+    return JSON.parse(localStorage.getItem('numberProgress') || '{}');
+  } catch (e) { return {}; }
+}
+
 const STATE = {
-  currentNumber: 0,
+  currentId: '0',        // 연습 중인 항목 ('7' · 'ㄱ' · '나비')
+  partIndex: 0,          // 여러 글자짜리 단어에서 지금 쓰는 글자
+  category: 'number',    // 홈에서 고른 탭
   step: 0,               // 0=보기, 1=따라쓰기, 2=혼자쓰기
   strokes: [],           // 사용자가 그린 stroke 리스트
   drawing: false,
   currentStroke: null,
   activePointerId: null, // 그리는 중인 포인터 (멀티터치 방지)
-  progress: JSON.parse(localStorage.getItem('numberProgress') || '{}'),  // { "3": 3 } -> 3번 숫자의 별 개수
+  progress: loadProgress(),  // { "3": 3, "ㄱ": 2 } -> 항목별 별 개수
   audioCtx: null,
   timers: [],            // 살아있는 setTimeout id 전부
   demoPlaying: false,
   demoToken: 0,          // 취소된 데모의 뒤늦은 콜백을 무시하기 위한 토큰
-  spokenFor: null,       // 이름을 읽어준 숫자 (단계 이동 때 반복 방지)
-  infoFor: null,         // 정보 패널을 그려둔 숫자 (단계 이동 때 재렌더 방지)
+  spokenFor: null,       // 이름을 읽어준 항목 (단계 이동 때 반복 방지)
+  infoFor: null,         // 정보 패널을 그려둔 항목 (단계 이동 때 재렌더 방지)
 };
+
+// ---------- 배울 것 목록 ----------
+// 숫자 탭은 이 파일이, 한글 네 탭은 hangul-data.js 가 채운다.
+const CATEGORIES = (function () {
+  const list = [{ key: 'number', label: '숫자', icon: '123', color: '#1B7FD4', bgColor: '#D4E9FA' }];
+  const H = window.HANGUL_CATEGORY || {};
+  ['consonant', 'vowel', 'syllable', 'word'].forEach(k => {
+    if (H[k]) list.push(Object.assign({ key: k }, H[k]));
+  });
+  return list;
+})();
+
+// '자음을' / '숫자를' — 받침이 있으면 을, 없으면 를.
+function withParticle(word, withFinal, withoutFinal) {
+  const code = String(word).charCodeAt(String(word).length - 1) - 0xAC00;
+  const hasFinal = code >= 0 && code <= 11171 && code % 28 !== 0;
+  return word + (hasFinal ? withFinal : withoutFinal);
+}
+
+function categoryOf(key) {
+  return CATEGORIES.find(c => c.key === key) || CATEGORIES[0];
+}
+
+function itemsOf(category) {
+  if (category === 'number') {
+    const out = [];
+    for (let n = 0; n <= 20; n++) out.push(window.NUMBER_DATA[n]);
+    return out;
+  }
+  const order = (window.HANGUL_ORDER && window.HANGUL_ORDER[category]) || [];
+  return order.map(id => window.HANGUL_DATA[id]);
+}
+
+function itemById(id) {
+  if (window.HANGUL_DATA && window.HANGUL_DATA[id]) return window.HANGUL_DATA[id];
+  return window.NUMBER_DATA[id] || null;
+}
+
+function currentItem() { return itemById(STATE.currentId); }
+
+// 여러 글자짜리 단어는 한 글자씩 차례로 쓴다. 캔버스·획순 데모·그리기는
+// 이 조각을 보고, 정보 패널과 소리는 단어 전체를 본다.
+function currentGlyph() {
+  const item = currentItem();
+  if (!item || !item.parts) return item;
+  return item.parts[Math.min(STATE.partIndex, item.parts.length - 1)];
+}
+function partCount() {
+  const item = currentItem();
+  return item && item.parts ? item.parts.length : 1;
+}
+function isNumberItem(item) { return !!item && item.category === 'number'; }
+
+// 앞 항목을 한 번이라도 끝내야 다음이 열린다. 다만 첫 화면이 자물쇠뿐이지
+// 않도록 각 탭의 앞 몇 개는 처음부터 열어 둔다.
+const HEAD_START = 3;
+function isUnlocked(list, index) {
+  if (index < HEAD_START) return true;
+  const prev = list[index - 1];
+  return !prev || (STATE.progress[prev.id] || 0) > 0;
+}
 
 // ---------- 타이머 추적 ----------
 // 화면이 바뀌면 예약된 콜백이 남아 이전 화면을 건드리는 사고를 막는다.
@@ -70,13 +150,20 @@ function speak(text, el) {
 
 // 버튼에서 부르는 진입점 (텍스트는 STATE에서 그때그때 만든다)
 function speakNumber(kind) {
-  const data = window.NUMBER_DATA[STATE.currentNumber];
+  const data = currentItem();
   if (!data) return;
-  const map = {
+  // 한글은 이름(기역)과 소리(그)가 다르다. 큰 글자를 누르면 소리를, 이름을
+  // 누르면 이름을 읽어 준다. 단어는 셋이 모두 같은 말이다.
+  const map = isNumberItem(data) ? {
     ko:     [data.ko, document.getElementById('infoKo')],
     native: [data.native, document.getElementById('infoNative')],
     num:    [data.ko, document.getElementById('infoNum')],
     object: [objectPhrase(data), document.querySelector('.obj-caption')]
+  } : {
+    ko:     [data.say, document.getElementById('infoKo')],
+    native: [data.ko, document.getElementById('infoNative')],
+    num:    [data.say, document.getElementById('infoNum')],
+    object: [data.word, document.querySelector('.obj-caption')]
   };
   const pair = map[kind];
   if (pair && pair[0]) { unlockAudio(); speak(pair[0], pair[1]); }
@@ -158,49 +245,114 @@ function sfxCelebrate() {
 
 // ---------- 홈 화면 ----------
 function renderHome() {
-  const grid = document.getElementById('numberGrid');
-  grid.innerHTML = '';
-  for (let n = 0; n <= 20; n++) {
-    const data = window.NUMBER_DATA[n];
-    const stars = STATE.progress[n] || 0;
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = 'number-card';
-    card.setAttribute('role', 'listitem');
-    card.style.background = `linear-gradient(135deg, ${data.bgColor} 0%, white 100%)`;
-    card.style.borderColor = stars > 0 ? data.color : 'transparent';
-    card.setAttribute('aria-label',
-      `숫자 ${n}, ${data.ko}${data.native ? ' 또는 ' + data.native : ''}, ` +
-      `${objectPhrase(data)}, 별 ${stars}개 모음`);
-    card.innerHTML = `
-      <div class="card-stars" aria-hidden="true">
-        ${[0,1,2].map(i => `<span class="star ${i<stars?'':'empty'}">${i<stars?'⭐':'☆'}</span>`).join('')}
-      </div>
-      <div class="num" style="color: ${data.color}" aria-hidden="true">${n}</div>
-      <div class="ko" aria-hidden="true">${data.ko}</div>
-    `;
-    card.addEventListener('click', () => { sfxTap(); openPractice(n); });
-    grid.appendChild(card);
-  }
+  renderCategoryTabs();
+  renderGrid();
   updateTotalStars();
 }
+
+function renderCategoryTabs() {
+  const bar = document.getElementById('categoryTabs');
+  bar.innerHTML = '';
+  CATEGORIES.forEach(cat => {
+    const on = cat.key === STATE.category;
+    const tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'category-tab' + (on ? ' on' : '');
+    tab.style.background = on ? cat.color : cat.bgColor;
+    tab.style.color = on ? '#fff' : cat.color;
+    tab.setAttribute('aria-pressed', on ? 'true' : 'false');
+    tab.innerHTML = `<span class="tab-icon" style="color:${cat.color}" aria-hidden="true">${cat.icon}</span>${cat.label}`;
+    tab.addEventListener('click', () => {
+      if (STATE.category === cat.key) return;
+      sfxTap();
+      STATE.category = cat.key;
+      renderHome();
+    });
+    bar.appendChild(tab);
+  });
+  document.getElementById('homeSubtitle').textContent =
+    withParticle(categoryOf(STATE.category).label, '을', '를') + ' 골라볼까요?';
+}
+
+function renderGrid() {
+  const grid = document.getElementById('numberGrid');
+  const list = itemsOf(STATE.category);
+  const isWord = STATE.category === 'word';
+  // 한 화면에 다 들어가지 않는 탭은 위에서부터 채우고 그리드 안에서 스크롤한다
+  const many = list.length > 24;
+  grid.className = 'number-grid' + (isWord ? ' cols-5 wide-cards' : '') + (many ? ' scrolly' : '');
+  grid.setAttribute('aria-label', '연습할 ' + categoryOf(STATE.category).label + ' 고르기');
+  grid.innerHTML = '';
+
+  list.forEach((data, index) => {
+    const stars = STATE.progress[data.id] || 0;
+    const open = isUnlocked(list, index);
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'number-card' + (open ? '' : ' locked');
+    card.setAttribute('role', 'listitem');
+    if (open) {
+      card.style.background = `linear-gradient(135deg, ${data.bgColor} 0%, white 100%)`;
+      card.style.borderColor = stars > 0 ? data.color : 'transparent';
+    }
+    card.setAttribute('aria-label', cardLabel(data, stars, open));
+
+    const starRow = open
+      ? `<div class="card-stars" aria-hidden="true">${
+          [0,1,2].map(i => `<span class="star ${i<stars?'':'empty'}">${i<stars?'⭐':'☆'}</span>`).join('')
+        }</div>`
+      : '<div class="card-lock" aria-hidden="true">🔒</div>';
+
+    // 단어는 뜻 그림을 함께 보여 주고, 나머지는 글자와 읽는 법을 보여 준다.
+    const body = isWord
+      ? `<div class="word-emoji" aria-hidden="true">${data.emoji || ''}</div>
+         <div class="num word-text" style="color:${data.color}" aria-hidden="true">${data.id}</div>`
+      : `<div class="num" style="color:${data.color}" aria-hidden="true">${data.id}</div>
+         <div class="ko" aria-hidden="true">${data.ko}</div>`;
+
+    card.innerHTML = starRow + body;
+    card.addEventListener('click', () => {
+      if (!open) {
+        // 잠긴 카드 — 흔들지 않고 살짝 통통 튀기만 한다
+        card.classList.remove('bounce');
+        void card.offsetWidth;
+        card.classList.add('bounce');
+        sfxTap();
+        speak('다음에 만나요');
+        return;
+      }
+      sfxTap();
+      openPractice(data.id);
+    });
+    grid.appendChild(card);
+  });
+}
+
+function cardLabel(data, stars, open) {
+  const what = isNumberItem(data)
+    ? `숫자 ${data.id}, ${data.ko}${data.native ? ' 또는 ' + data.native : ''}, ${objectPhrase(data)}`
+    : `${data.id}, ${data.ko}`;
+  return open ? `${what}, 별 ${stars}개 모음` : `${what}, 아직 잠겨 있어요`;
+}
+
 function updateTotalStars() {
   const total = Object.values(STATE.progress).reduce((a,b) => a+b, 0);
   document.getElementById('totalStarsNum').textContent = total;
 }
-function saveProgress(num, stars) {
-  const prev = STATE.progress[num] || 0;
-  STATE.progress[num] = Math.max(prev, stars);
-  localStorage.setItem('numberProgress', JSON.stringify(STATE.progress));
+function saveProgress(id, stars) {
+  const prev = STATE.progress[id] || 0;
+  STATE.progress[id] = Math.max(prev, stars);
+  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(STATE.progress)); } catch (e) { /* 저장 불가면 이번 세션만 유지 */ }
   updateTotalStars();
 }
 
 // ---------- 연습 화면 열기 ----------
-function openPractice(num) {
+function openPractice(id) {
   unlockAudio();
   clearTimers();
   stopStrokeDemo();
-  STATE.currentNumber = num;
+  STATE.currentId = String(id);
+  STATE.partIndex = 0;
   STATE.step = 0;
   document.getElementById('home').style.display = 'none';
   document.getElementById('practice').classList.add('active');
@@ -219,31 +371,53 @@ function goHome() {
 }
 
 // ---------- 정보 패널 ----------
-function renderInfoPanel(data, num) {
+function renderInfoPanel(data) {
   const numEl = document.getElementById('infoNum');
-  numEl.textContent = num;
+  numEl.textContent = data.id;
   numEl.style.color = data.color;
-  numEl.setAttribute('aria-label', `숫자 ${num}, ${data.ko}. 눌러서 소리 듣기`);
-  const koEl = document.getElementById('infoKo');
-  koEl.textContent = data.ko;
-  koEl.setAttribute('aria-label', `${data.ko}. 눌러서 소리 듣기`);
-  const natEl = document.getElementById('infoNative');
-  natEl.textContent = data.native || '';
-  natEl.style.display = data.native ? '' : 'none';
-  natEl.setAttribute('aria-label', `${data.native}. 눌러서 소리 듣기`);
-  document.getElementById('infoEn').textContent = data.en;
+  // 두 글자가 넘는 단어는 큰 글자 칸에 다 들어가지 않는다
+  numEl.classList.toggle('compact', data.id.length > 1);
 
+  const koEl = document.getElementById('infoKo');
+  const natEl = document.getElementById('infoNative');
+  const enEl = document.getElementById('infoEn');
+
+  if (isNumberItem(data)) {
+    numEl.setAttribute('aria-label', `숫자 ${data.id}, ${data.ko}. 눌러서 소리 듣기`);
+    koEl.textContent = data.ko;
+    koEl.setAttribute('aria-label', `${data.ko}. 눌러서 소리 듣기`);
+    natEl.textContent = data.native || '';
+    natEl.style.display = data.native ? '' : 'none';
+    natEl.setAttribute('aria-label', `${data.native}. 눌러서 소리 듣기`);
+    enEl.textContent = data.en;
+    enEl.style.display = '';
+    renderCountingObjects(data);
+    return;
+  }
+
+  // 한글 — 이름(기역)과 대표 단어(가방)를 보여 준다.
+  numEl.setAttribute('aria-label', `${data.id}. 눌러서 소리 듣기`);
+  koEl.textContent = data.ko === data.id ? data.say : data.ko;
+  koEl.setAttribute('aria-label', `${data.ko}. 눌러서 소리 듣기`);
+  natEl.style.display = 'none';
+  enEl.style.display = 'none';
+  renderExampleWord(data);
+}
+
+// 숫자 — 세어 볼 물건을 개수만큼 늘어놓는다
+function renderCountingObjects(data) {
   const objs = document.getElementById('infoObjects');
-  objs.classList.toggle('zero', num === 0);
+  const count = data.object.count;
+  objs.classList.toggle('zero', count === 0);
   objs.innerHTML = '';
   const reduce = reducedMotion();
-  if (num === 0) {
+  if (count === 0) {
     const empty = document.createElement('div');
     empty.className = 'obj-caption';
     empty.textContent = '텅 비었어요! 하나도 없어요 😊';
     objs.appendChild(empty);
   } else {
-    for (let i = 0; i < num; i++) {
+    for (let i = 0; i < count; i++) {
       const e = document.createElement('span');
       e.className = 'emoji';
       e.textContent = data.object.emoji;
@@ -251,22 +425,42 @@ function renderInfoPanel(data, num) {
       objs.appendChild(e);
     }
   }
+  objs.appendChild(speakableCaption(
+    (count === 0 ? `${data.object.label} 0개` : `${data.object.label} ${count}개`) + ' 🔊',
+    objectPhrase(data)));
+}
+
+// 한글 — 그 글자가 들어간 대표 단어 하나
+function renderExampleWord(data) {
+  const objs = document.getElementById('infoObjects');
+  objs.classList.remove('zero');
+  objs.innerHTML = '';
+  if (data.emoji) {
+    const e = document.createElement('span');
+    e.className = 'emoji';
+    e.textContent = data.emoji;
+    objs.appendChild(e);
+  }
+  objs.appendChild(speakableCaption(data.word + ' 🔊', data.word));
+}
+
+function speakableCaption(text, label) {
   const caption = document.createElement('button');
   caption.type = 'button';
   caption.className = 'obj-caption speakable';
-  caption.textContent = (num === 0 ? `${data.object.label} 0개` : `${data.object.label} ${num}개`) + ' 🔊';
-  caption.setAttribute('aria-label', `${objectPhrase(data)}. 눌러서 소리 듣기`);
+  caption.textContent = text;
+  caption.setAttribute('aria-label', `${label}. 눌러서 소리 듣기`);
   caption.addEventListener('click', () => speakNumber('object'));
-  objs.appendChild(caption);
+  return caption;
 }
 
 // ---------- 연습 화면 렌더링 ----------
 function renderPractice() {
-  const num = STATE.currentNumber;
-  const data = window.NUMBER_DATA[num];
+  const id = STATE.currentId;
+  const data = currentItem();
 
-  // 정보 패널 — 숫자가 바뀔 때만 다시 그린다
-  if (STATE.infoFor !== num) { STATE.infoFor = num; renderInfoPanel(data, num); }
+  // 정보 패널 — 항목이 바뀔 때만 다시 그린다
+  if (STATE.infoFor !== id) { STATE.infoFor = id; renderInfoPanel(data); }
 
   // 단계 표시
   document.querySelectorAll('.step-dot').forEach((el, i) => {
@@ -277,16 +471,19 @@ function renderPractice() {
   // 단계별 캔버스 세팅
   renderStep();
 
-  // 새 숫자로 들어왔으면 이름을 한 번 읽어준다 (단계 이동 때는 반복하지 않음)
-  if (STATE.spokenFor !== num) {
-    STATE.spokenFor = num;
+  // 새 항목으로 들어왔으면 이름을 한 번 읽어준다 (단계 이동 때는 반복하지 않음)
+  if (STATE.spokenFor !== id) {
+    STATE.spokenFor = id;
     later(() => speakNumber('ko'), 250);
   }
 }
 
 function renderStep() {
-  const num = STATE.currentNumber;
-  const data = window.NUMBER_DATA[num];
+  const item = currentItem();
+  const data = currentGlyph();
+  const what = isNumberItem(item) ? '숫자' : '글자';
+  // 단어는 지금 몇 번째 글자를 쓰는지 알려 준다
+  const where = partCount() > 1 ? ` (${item.id} 중 ‘${data.id}’)` : '';
   const titleEl = document.getElementById('canvasTitle');
   const svg = document.getElementById('guideSvg');
   const canvas = document.getElementById('drawCanvas');
@@ -307,7 +504,7 @@ function renderStep() {
   resizeCanvas();
 
   if (STATE.step === 0) {
-    titleEl.innerHTML = '👀 숫자 모양을 잘 보세요';
+    titleEl.innerHTML = `👀 ${what} 모양을 잘 보세요${where}`;
     renderStepView(svg, data);
     // 진입하자마자 획순을 한 번 보여준다 (버튼이 글자를 가리지 않도록).
     demoBtn.classList.remove('hidden');
@@ -319,7 +516,7 @@ function renderStep() {
       <button type="button" class="btn btn-primary" onclick="nextStep()">따라 써볼까요? →</button>
     `;
   } else if (STATE.step === 1) {
-    titleEl.innerHTML = '✏️ 점선을 따라 손가락으로 그려보세요';
+    titleEl.innerHTML = `✏️ 점선을 따라 손가락으로 그려보세요${where}`;
     renderStepTrace(svg, data);
     demoBtn.classList.add('hidden');
     actionBar.innerHTML = `
@@ -332,7 +529,7 @@ function renderStep() {
       <button type="button" class="btn btn-primary" onclick="checkTrace()">다 썼어요! ✨</button>
     `;
   } else if (STATE.step === 2) {
-    titleEl.innerHTML = '🌟 이번엔 혼자서 써볼까요?';
+    titleEl.innerHTML = `🌟 이번엔 혼자서 써볼까요?${where}`;
     renderStepSolo(svg, data);
     demoBtn.classList.add('hidden');
     actionBar.innerHTML = `
@@ -367,6 +564,11 @@ const DOT_PERIOD = 18;
 // SVG 안의 글자(획 번호)는 CSS 를 상속하지 않으므로 따로 지정한다.
 const FONT_FAMILY = "'Gothic A1', 'Apple SD Gothic Neo', sans-serif";
 
+// 획 번호를 붙일 수 있는 최대 획 수. 한글 음절은 획이 8개까지 나오는데,
+// 그만큼의 번호를 한꺼번에 띄우면 글자가 번호에 덮인다. 그 이상이면 첫 획에만
+// 번호를 붙이고 나머지는 시작점 점으로만 표시한다 — 순서는 획순 데모가 보여 준다.
+const MAX_NUMBERED = 4;
+
 function renderStepView(svg, data) {
   svg.innerHTML = '';
   // 큰 채워진 숫자
@@ -382,7 +584,7 @@ function renderStepView(svg, data) {
 // 가이드 SVG는 절대 건드리지 않는다. 별도 오버레이 레이어(#demoSvg)에서만 재생하고,
 // 끝나면 오버레이를 비우는 것으로 원래 단계 가이드가 그대로 복구된다.
 function playStrokeDemo(auto) {
-  const data = window.NUMBER_DATA[STATE.currentNumber];
+  const data = currentGlyph();
   if (!data) return;
   if (!auto) { unlockAudio(); sfxTap(); }
 
@@ -488,16 +690,19 @@ function renderStepTrace(svg, data) {
   });
 
   // ④ 시작점 + 획 번호 (맨 위) — 같은 좌표에서 시작하는 획끼리 겹치지 않게 배치
+  const numbered = data.strokes.length <= MAX_NUMBERED;
   const marks = [];
   data.strokes.forEach((s, i) => {
     const probe = svgEl('path', { d: s.d, fill: 'none', stroke: 'none' });
     svg.appendChild(probe);
     const m = placeMarker(probe, s.start, marks, 26);
     probe.remove();
+    const withNumber = numbered || i === 0;
     svg.appendChild(svgEl('circle', {
-      cx: m.x, cy: m.y, r: 11, fill: data.color,
+      cx: m.x, cy: m.y, r: withNumber ? 11 : 6, fill: data.color,
       stroke: 'white', 'stroke-width': 2, class: 'start-dot'
     }));
+    if (!withNumber) return;
     const label = svgEl('text', {
       x: m.x, y: m.y + 5, 'text-anchor': 'middle',
       'font-size': 14, 'font-weight': 'bold', fill: 'white',
@@ -570,7 +775,7 @@ function startDraw(e) {
   try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
   STATE.activePointerId = e.pointerId;
   STATE.drawing = true;
-  const data = window.NUMBER_DATA[STATE.currentNumber];
+  const data = currentGlyph();
   STATE.currentStroke = { color: data.color, points: [getPointerPos(e)] };
   STATE.strokes.push(STATE.currentStroke);
   sfxDraw();
@@ -654,6 +859,11 @@ function checkTrace() {
     return;
   }
   sfxSuccess();
+  if (partCount() > 1) {      // 단어는 글자마다 축하하지 않고 바로 넘어간다
+    STATE.step = 2;
+    renderPractice();
+    return;
+  }
   showCelebration(2, false);  // 따라쓰기 완료 = 2별
 }
 function finishPractice() {
@@ -662,19 +872,29 @@ function finishPractice() {
     showEncourage('조금 더 그려볼까요?');
     return;
   }
+  // 단어는 글자마다 세 단계를 돌고, 마지막 글자를 끝내야 별을 받는다
+  if (STATE.partIndex + 1 < partCount()) {
+    STATE.partIndex++;
+    STATE.step = 0;
+    sfxSuccess();
+    showEncourage('잘했어요! 다음 글자예요');
+    renderPractice();
+    return;
+  }
   sfxCelebrate();
   showCelebration(3, true);   // 혼자쓰기 완료 = 3별
 }
 
 function showCelebration(stars, isFinal) {
-  const num = STATE.currentNumber;
-  saveProgress(num, stars);
+  const data = currentItem();
+  saveProgress(STATE.currentId, stars);
 
   const c = document.getElementById('celebration');
   c.classList.add('active');
   document.getElementById('celebTitle').textContent = isFinal ? '참 잘했어요!' : '따라쓰기 성공!';
   document.getElementById('celebSub').textContent = isFinal
-    ? `숫자 ${num}을(를) 완성했어요!`
+    // 이름으로 읽어야 조사가 자연스럽다 — 'ㄱ를'이 아니라 '기역을'
+    ? `${isNumberItem(data) ? '숫자 ' : ''}${withParticle(data.ko, '을', '를')} 완성했어요!`
     : `이번엔 혼자 써볼까요?`;
   document.getElementById('celebEmoji').textContent = isFinal ? '🎉' : '🌟';
 
@@ -691,7 +911,7 @@ function showCelebration(stars, isFinal) {
   // 다음 버튼 조정
   const nextBtn = document.getElementById('nextBtn');
   if (isFinal) {
-    nextBtn.textContent = num < 20 ? '다음 숫자 →' : '처음으로 →';
+    nextBtn.textContent = nextItemId() ? '다음 →' : '처음으로 →';
     nextBtn.onclick = () => { closeCelebration(); nextNumber(); };
   } else {
     nextBtn.textContent = '혼자 써볼래요! →';
@@ -707,9 +927,18 @@ function closeCelebration() {
   sfxTap();
   document.getElementById('celebration').classList.remove('active');
 }
+// 같은 탭의 다음 항목. 마지막이면 null.
+function nextItemId() {
+  const data = currentItem();
+  if (!data) return null;
+  const list = itemsOf(data.category);
+  const at = list.findIndex(item => item.id === data.id);
+  return at >= 0 && at + 1 < list.length ? list[at + 1].id : null;
+}
+
 function nextNumber() {
-  const next = STATE.currentNumber + 1;
-  if (next <= 20) {
+  const next = nextItemId();
+  if (next) {
     openPractice(next);
   } else {
     goHome();

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>한글 획 데이터 점검표</title>
+<style>
+  body { margin: 0; background: #f4f1ea; font-family: system-ui, sans-serif; color: #4a4a63; }
+  h1 { font-size: 20px; padding: 16px 16px 0; margin: 0; }
+  p.note { font-size: 13px; color: #7a7a9c; padding: 6px 16px 0; margin: 0; max-width: 70ch; line-height: 1.6; }
+  h2 { font-size: 15px; color: #7a7a9c; padding: 18px 16px 0; margin: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px; }
+  .cell { width: 132px; background: white; border-radius: 14px; padding: 6px;
+          text-align: center; font-size: 11px; color: #8a8aa8; }
+  .cell b { display: block; font-size: 12px; color: #4a4a63; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>한글 획 데이터 점검표</h1>
+<p class="note">
+  hangul-data.js 가 만드는 모든 글자를 획 순서대로(연한 색 → 진한 색) 그려 본 것.
+  자모의 모양이나 조합 상자를 손볼 때 여기서 결과를 확인한다. 브라우저로 그냥 열면 된다.
+</p>
+<div id="out"></div>
+<script src="../hangul-data.js"></script>
+<script>
+(function () {
+  const out = document.getElementById('out');
+  const labels = { consonant: '자음', vowel: '모음', syllable: '글자', word: '단어' };
+
+  function draw(item) {
+    const n = item.strokes.length;
+    const paths = item.strokes.map((s, i) =>
+      `<path d="${s.d}" stroke="${item.color}" stroke-opacity="${(0.35 + 0.65 * (i + 1) / n).toFixed(2)}"` +
+      ` stroke-width="${item.strokeWidth}" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+    ).join('');
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.innerHTML = `<svg width="120" height="120" viewBox="${item.viewBox}" preserveAspectRatio="xMidYMid meet">${paths}</svg>` +
+      `<b>${item.id}</b>${n}획${item.parts ? ' · ' + item.parts.length + '조각' : ''}`;
+    return cell;
+  }
+
+  Object.keys(labels).forEach(category => {
+    const ids = window.HANGUL_ORDER[category] || [];
+    if (!ids.length) return;
+    const h = document.createElement('h2');
+    h.textContent = `${labels[category]} — ${ids.length}개`;
+    out.appendChild(h);
+    const row = document.createElement('div');
+    row.className = 'row';
+    ids.forEach(id => row.appendChild(draw(window.HANGUL_DATA[id])));
+    out.appendChild(row);
+  });
+})();
+</script>
+</body>
+</html>

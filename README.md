@@ -1,7 +1,9 @@
-# Handoff: Number Writing Practice (숫자 쓰기 연습)
+# Handoff: Writing Practice (한글·숫자 쓰기 연습)
 
 ## Overview
-A touch-first learning app for **5-year-old children** to practice writing numbers 0–20. Each number follows a **3-step learning flow**: (1) See the number and count real objects, (2) Trace along a dotted guide with a finger, (3) Write freely with only a faint guide. Successful completion awards star stickers with sound + confetti feedback, and progress is persisted per-number.
+A touch-first learning app for **5-year-old children** to practice writing numbers 0–20 and Hangul — 19 consonants, 21 vowels, 15 syllables and 36 words. Every item follows the same **3-step learning flow**: (1) See the shape and (for numbers) count real objects, (2) Trace along a dotted guide with a finger, (3) Write freely with only a faint guide. Successful completion awards star stickers with sound + confetti feedback, and progress is persisted per item.
+
+Numbers and Hangul share one item shape — `{ id, category, ko, color, bgColor, strokeWidth, viewBox, strokes:[{ d, start }] }` — so the canvas, the stroke-order demo and the drawing surface never branch on which is which. Only two places differ: the category tabs on the home screen, and the contents of the left info panel.
 
 Primary target device: **iPad / tablet in landscape**, finger touch input. Secondary: desktop with mouse.
 
@@ -209,7 +211,9 @@ Any screen → "← 처음으로" → Home
 ## State Management
 
 Global app state:
-- `currentNumber: 0..20` — which number is being practiced.
+- `currentId: string` — which item is being practiced (`'7'`, `'ㄱ'`, `'나비'`).
+- `partIndex: number` — which syllable of a multi-syllable word is being written right now.
+- `category: 'number' | 'consonant' | 'vowel' | 'syllable' | 'word'` — the tab chosen on the home screen.
 - `step: 0 | 1 | 2` — 0=See, 1=Trace, 2=Solo.
 - `strokes: Stroke[]` — user's drawn strokes on the current canvas, cleared on step change or clear button. Each stroke is `{ color: string, points: {x, y}[] }`.
 - `drawing: boolean` — is the pointer currently down.
@@ -217,9 +221,11 @@ Global app state:
 - `currentStroke: Stroke | null` — the stroke currently being extended.
 - `timers: number[]` — live `setTimeout` ids, cancelled wholesale on navigation.
 - `demoPlaying: boolean` / `demoToken: number` — stroke-demo playback guard.
-- `progress: { [numberStr: string]: 0|1|2|3 }` — best star count earned per number, persisted to `localStorage.numberProgress`.
+- `progress: { [itemId: string]: 0|1|2|3 }` — best star count earned per item, persisted to `localStorage.writingProgress`. Number ids are `'0'`–`'20'` and Hangul ids are the characters themselves, so the two never collide; a pre-existing `localStorage.numberProgress` is read once and carried over.
 
-Persistence: on `saveProgress(num, stars)`, write `progress[num] = max(progress[num], stars)` back to localStorage. In a native app, use secure key-value storage (UserDefaults / AsyncStorage / SharedPreferences).
+Persistence: on `saveProgress(id, stars)`, write `progress[id] = max(progress[id], stars)` back to localStorage. In a native app, use secure key-value storage (UserDefaults / AsyncStorage / SharedPreferences).
+
+**Locking.** Within a tab, an item opens once the item before it has earned at least one star; the first `HEAD_START` (3) of every tab start open so the first screen is never a wall of padlocks. A locked card sinks flat (no shadow, glyph at 35% opacity, a small 🔒), and tapping it bounces gently and says "다음에 만나요" — no red, no grey alarm tone, no shake.
 
 No server / no fetching needed. The app is fully offline-capable.
 
@@ -352,6 +358,8 @@ Bundled in this handoff:
 - `index.html` — full-page shell, styles, screen containers, demo overlay layer, celebration overlay markup.
 - `app.js` — all state, screen rendering, drawing canvas, SVG guide generation, stroke-order animation, sound synthesis, progress persistence.
 - `number-data.js` — the 21 number definitions (stroke paths, colors, Korean/English names, count emojis).
+- `hangul-data.js` — the stroke data for 19 consonants and 21 vowels, the composition rules that build any syllable from them, and the 91 curriculum items across four categories.
+- `docs/glyph-sheet.html` — every Hangul item drawn in stroke order on one page. Open it in a browser after touching the letter shapes or the composition boxes.
 
 ## Running It
 
@@ -454,6 +462,19 @@ git-ignored; regenerate it rather than committing it.
 - **Single digits are centred in their cell.** `compose()` only balanced multi-digit
   numbers; 1 (74 wide) sat 41 left / 85 right, noticeably shoved to one side. Single digits
   now get the same optical centring, so every glyph is symmetric in its cell.
+
+### Stage D: Hangul
+- **Hangul is composed, not set in a font.** A font carries no stroke order or direction, so it can drive neither the stroke-order animation nor the dotted guide. `hangul-data.js` holds 19 consonants and 21 vowels drawn on a 1000×1000 box, then places them by the real composition rules and scales the result into the same 200 cell the numbers use.
+  - vertical vowel (가) — consonant left, the vowel's stem spanning the full height
+  - horizontal vowel (고) — consonant on top, vowel across the bottom
+  - compound vowel (과) — consonant top-left, ㅗ bottom-left, ㅏ full height on the right; compound vowels are split into their two parts rather than dropped in as one finished block
+  - with a final consonant (박·물) — the top is compressed and the final sits below
+  Adding a character to the curriculum therefore gives it stroke order, guides and animation for free; double consonants and clustered finals fall out of the same rules.
+- **Words are written one syllable at a time.** A two-syllable word laid out across the canvas shrinks each glyph to a fraction of its size and stacks eight numbered start markers on top of each other. Multi-syllable items now carry a `parts` array and the canvas walks it, so the child writes 나 and then 비, each at full size. The info panel and the speech still refer to the whole word.
+- **Stroke numbers are capped.** Above `MAX_NUMBERED` (4) strokes, only the first start marker is numbered and the rest are plain dots — a Hangul syllable can reach eight strokes, and eight badges bury the glyph they are meant to explain. The order is still shown by the stroke-order demo.
+- **Sequential unlocking** across every tab, including numbers — see *State Management*.
+- **Korean particles** are chosen by whether the preceding syllable has a final consonant, so the subtitle reads 자음**을** / 숫자**를** rather than a fixed 를.
+- **Fixed: progress was silently lost on reload.** `loadProgress()` sat above its own `const PROGRESS_KEY` and read it during `STATE` initialisation — a temporal-dead-zone `ReferenceError` that the surrounding `try/catch` (there for private-mode localStorage) swallowed, so every session started empty. The constant now precedes the state.
 
 ### Known gaps
 - Screen-reader coverage is partial: home cards and the main controls have labels, but the
