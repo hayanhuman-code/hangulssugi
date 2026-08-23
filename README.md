@@ -529,6 +529,25 @@ git-ignored; regenerate it rather than committing it.
 - **처음부터 열려 있는 항목이 3개에서 6개로 늘었다.** 첫 화면이 잠긴 카드로 뒤덮이지 않는다.
 - 그 밖에 정보 패널이 카드 2장으로 나뉘었고(폭 332), 타이포 스케일(96/44/34/30/26/24/18)을 적용했다.
 
+### Stage G: 태블릿 세로
+
+태블릿을 세로로 세우면 화면이 무너졌다. 탭 다섯 개의 라벨이 전부 두 줄로 접히고(숫/자),
+단계 칩과 CTA 가 오른쪽으로 잘리고, 소리 듣기 버튼은 아예 화면 밖으로 밀려 사라졌다.
+카드 줄 높이도 들쭉날쭉했다.
+
+원인은 두 가지였다.
+
+- **열 수를 CSS 와 JS 가 따로 정하고 있었다.** 세로 화면에서 CSS 가 7열을 5열로 바꿨는데
+  `pageShape()` 는 클래스 이름(`cols-7`)만 보고 여전히 7열로 알았다. 그래서 줄 수를 3으로
+  잡았고, 남은 두 줄이 암시적 행(고정 150px)으로 생겨 앞 두 줄만 키가 커졌다. 열 수는 이제
+  `PAGE_SHAPE_PORTRAIT` 한 곳에서만 정하고 CSS 는 그 결과를 받아 그린다.
+- **세로 분기가 '다시 배치'만 하고 '줄이지'는 않았다.** 본문을 한 줄로 세우면서도 머리말·버튼·
+  정보 패널은 가로 기준 크기 그대로였다. 폰 분기(560px 이하)는 이 구간을 잡아 주지 못한다 —
+  태블릿 세로는 600~800px 이라 폰보다 넓다. 그 사이를 메우는 단계를 넣었다.
+
+`.category-tab` 은 이제 어느 폭에서도 줄바꿈하지 않는다(`white-space: nowrap`). 폭이 모자라면
+접는 게 아니라 글자를 줄인다.
+
 ### Known gaps
 - Screen-reader coverage is partial: home cards and the main controls have labels, but the
   canvas guide and the drawing surface are not described.

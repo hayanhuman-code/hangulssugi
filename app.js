@@ -302,10 +302,24 @@ const PAGE_SHAPE_NARROW = {
   syllable:  { cls: 'cols-3' },
   word:      { cls: 'cols-2' }
 };
+// 태블릿을 세로로 세우면 폭이 절반이 된다. 폰만큼 좁지는 않으니 한 단계만 줄인다.
+const PAGE_SHAPE_PORTRAIT = {
+  number:    { cls: 'cols-5' },
+  consonant: { cls: 'cols-5' },
+  vowel:     { cls: 'cols-5' },
+  syllable:  { cls: 'cols-4' },
+  word:      { cls: 'cols-2' }
+};
 
-// CSS 의 좁은 화면 분기와 같은 조건을 쓴다. 한쪽만 바뀌면 열이 어긋난다.
+// CSS 의 화면 분기와 같은 조건을 쓴다. 한쪽만 바뀌면 열이 어긋난다.
+//
+// 열 수는 반드시 여기서만 정한다. 예전에는 CSS 가 세로 화면에서 7열을 5열로 몰래
+// 바꿨는데, JS 는 여전히 7열인 줄 알고 줄 수를 3으로 잡았다. 그래서 나머지 두 줄이
+// 암시적 행(고정 150px)으로 생겨 줄 높이가 들쭉날쭉해지고 카드가 그리드 밖으로 밀렸다.
 const NARROW = '(max-width: 560px)';
+const PORTRAIT = '(max-aspect-ratio: 1/1)';
 function isNarrow() { return window.matchMedia(NARROW).matches; }
+function isPortrait() { return window.matchMedia(PORTRAIT).matches; }
 
 // 열 수는 위 표(시안의 규칙)에서 오고, 행 수는 남은 높이에서 정한다.
 //
@@ -316,8 +330,6 @@ function isNarrow() { return window.matchMedia(NARROW).matches; }
 const MIN_CARD_H = 96;   // 네 살 손가락이 누를 수 있는 최소 칸 높이
 const MAX_ROWS = 5;      // 그보다 많으면 한 장에 너무 빽빽해진다
 
-function isNarrow() { return window.matchMedia(NARROW).matches; }
-
 function rowsFor() {
   const viewport = document.querySelector('.grid-viewport');
   const h = viewport ? viewport.clientHeight : 0;
@@ -326,7 +338,9 @@ function rowsFor() {
 }
 
 function pageShape() {
-  const table = isNarrow() ? PAGE_SHAPE_NARROW : PAGE_SHAPE;
+  const table = isNarrow() ? PAGE_SHAPE_NARROW
+    : isPortrait() ? PAGE_SHAPE_PORTRAIT
+    : PAGE_SHAPE;
   const base = table[STATE.category] || table.number;
   const cols = Number(base.cls.slice(5)) || 4;
   // 시안이 정한 줄 수를 기본으로 삼고, 화면이 그만큼 안 되면 그때만 줄인다.
