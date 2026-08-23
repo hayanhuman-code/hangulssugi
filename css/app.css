@@ -46,6 +46,10 @@
 html, body {
   margin: 0;
   height: 100%;
+  /* 모바일: 당겨서 새로고침·고무줄 스크롤·더블탭 확대를 막는다.
+     그리기 도중 화면이 딸려 움직이면 획이 끊긴다. */
+  overscroll-behavior: none;
+  touch-action: manipulation;
   background: var(--board);
   font-family: 'Jua', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   color: var(--ink);
@@ -310,7 +314,10 @@ body { display: flex; align-items: center; justify-content: center; }
 }
 .canvas-box .layer { position: absolute; inset: 0; }
 .canvas-box svg.guide { width: 100%; height: 100%; display: block; }
-.canvas-box canvas.ink { width: 100%; height: 100%; display: block; position: relative; z-index: 2; }
+.canvas-box canvas.ink {
+  width: 100%; height: 100%; display: block; position: relative; z-index: 2;
+  touch-action: none;   /* 손가락으로 긋는 동안 브라우저 제스처가 끼어들지 않게 */
+}
 
 .toolbar { height: 112px; display: flex; align-items: center; gap: 14px; flex: none; }
 .toolbar .cta { margin-left: auto; }
@@ -362,7 +369,7 @@ body { display: flex; align-items: center; justify-content: center; }
   background: var(--board); flex-direction: column; align-items: center; justify-content: center; gap: 18px;
   font-size: 28px; color: var(--ink-mid); text-align: center; padding: 40px;
 }
-body.portrait #rotate { display: flex; }
+/* 세로 레이아웃이 생겨 회전 안내는 쓰지 않는다 (#rotate 는 display:none 유지) */
 
 /* 단어 — 글자 하나를 끝내고 다음 글자로 넘어갈 때 칸이 미끄러진다 */
 .canvas-box.slide-out { transform: translateX(-38px); opacity: 0; transition: transform .2s ease-in, opacity .2s ease-in; }
@@ -421,3 +428,46 @@ body.portrait #rotate { display: flex; }
 .sheet-list .saved .del { font-size: 15px; color: var(--ink-mid); cursor: pointer; padding: 6px 10px; border-radius: 12px; }
 .sheet-list .saved .del:hover { background: var(--soft); }
 .sheet-list .empty { font-size: 16px; color: var(--ink-mid); padding: 6px 2px; }
+
+/* ══════════════════════════════════════════════════════════
+   세로로 들고 있을 때 (820 × 1180)
+   가로 배치를 그대로 축소하지 않고, 위아래로 다시 쌓는다.
+   ══════════════════════════════════════════════════════════ */
+body.portrait #stage { width: 820px; height: 1180px; }
+
+/* 연습 화면 — 왼쪽 패널을 위쪽 가로 띠로 눕히고, 캔버스가 아래를 크게 차지한다 */
+body.portrait .practice-body { flex-direction: column; gap: 20px; }
+
+body.portrait .panel {
+  width: auto; flex: none;
+  flex-direction: row; align-items: stretch; gap: 16px;
+}
+body.portrait .panel .big-card {
+  flex: none; width: 250px; justify-content: center; padding: 16px;
+}
+body.portrait .panel .big-card .glyph { font-size: 110px; }
+body.portrait .panel .big-card .glyph.long { font-size: 66px; }
+body.portrait .panel .big-card .name { font-size: 26px; }
+body.portrait .panel .word-card { flex: 1; }
+body.portrait .panel .sound-row {
+  margin-top: 0; flex: none; flex-direction: column; justify-content: center; gap: 8px;
+}
+body.portrait .panel .sound-row .tip { display: none; }
+
+body.portrait .work { flex: 1; min-height: 0; }
+
+/* 3단계 칩 — 좁은 폭에서 "따라쓰/기" 처럼 두 줄로 접히지 않게 */
+body.portrait .practice-head { gap: 12px; }
+body.portrait .chips { gap: 8px; margin-left: 4px; }
+body.portrait .chip { padding: 0 16px; font-size: 23px; gap: 8px; white-space: nowrap; }
+body.portrait .chip svg { flex: none; }
+
+/* 홈 화면 — 폭이 좁아진 만큼 열 수를 줄인다 */
+body.portrait .grid.small { grid-template-columns: repeat(5, 1fr); }
+body.portrait .grid.wide  { grid-template-columns: repeat(3, 1fr); }
+body.portrait .grid.word  { grid-template-columns: repeat(2, 1fr); }
+body.portrait .home-head .title { font-size: 30px; }
+body.portrait .tabs { gap: 10px; }
+body.portrait .tab { padding: 0 12px; gap: 8px; }
+body.portrait .tab-label { white-space: nowrap; font-size: 26px; }
+body.portrait .tab-icon { flex: none; }

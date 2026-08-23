@@ -27,11 +27,22 @@
     }, { once: true });
   }
 
+  /* 세로로 들고 있을 때 쓰는 화면 크기.
+     가로 화면(1180x820)을 세로에 그대로 넣으면 폭에 맞추느라 0.3배까지 줄어
+     글자도 버튼도 손가락으로 못 쓸 만큼 작아진다. 세로에서는 세로용 판을 쓴다. */
+  var PW = 820, PH = 1180;
+
   function fit() {
-    var pad = 24;
-    var scale = Math.min((global.innerWidth - pad) / W, (global.innerHeight - pad) / H);
+    var pad = 16;
+    var portrait = global.innerHeight > global.innerWidth * 1.05;
+    document.body.classList.toggle('portrait', portrait);
+
+    var w = portrait ? PW : W, h = portrait ? PH : H;
+    stage.style.width = w + 'px';
+    stage.style.height = h + 'px';
+
+    var scale = Math.min((global.innerWidth - pad) / w, (global.innerHeight - pad) / h);
     stage.style.transform = 'scale(' + Math.max(0.25, scale) + ')';
-    document.body.classList.toggle('portrait', global.innerHeight > global.innerWidth * 1.15);
   }
 
   function show(id) {
