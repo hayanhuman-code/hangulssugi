@@ -39,7 +39,7 @@ Preserve the interaction model, motion timing, and visual hierarchy. Substitute 
 - Chunky "toy" shadow: `0 6px 0 rgba(0,0,0,0.08), 0 8px 20px rgba(0,0,0,0.06)`.
 - On press: translateY(4px) + reduce shadow to `0 2px 0 …` (feels like a button being pushed).
 - Contents (vertical center):
-  - **Number**: 52px, Jua font-weight 700, colored in the number's accent color.
+  - **Number**: 52px, Gothic A1 700, colored in the number's accent color.
   - **Korean name**: 15px, `#8a8aa8`, under the number (예: 영, 일, 이, 삼…).
   - **Stars** (top-right absolute, 6px top / 8px right): 3 mini stars, filled `#FFD93D` if earned, `#E5E5EA` outline if not.
 
@@ -63,7 +63,7 @@ Preserve the interaction model, motion timing, and visual hierarchy. Substitute 
 
 #### 2a. Info Panel (persistent across all 3 steps)
 - White card, 32px radius, 20px padding, `0 8px 0 rgba(0,0,0,0.06)` shadow, contents centered vertically.
-- **Big number**: 150px, Jua 700, tinted with the number's accent color. Tappable — speaks the name.
+- **Big number**: 150px, Gothic A1 700, tinted with the number's accent color. Tappable — speaks the name.
 - **Number names**: the Sino-Korean reading (삼, 40px `#6b6b8a`) and the native Korean reading (셋, 30px `#7a7a9c`) side by side, separated by a faint `·`. A four-year-old learns both, so both are shown and both are individually tappable. 0 has no native form and that slot is hidden.
 - **English name**: 18px, `#b8b8d0`, uppercase, letter-spacing 1px.
 - **Objects panel** (yellow-tinted box `#FFF9DC`, 20px radius, 12px/14px padding, flex-wrap):
@@ -300,27 +300,27 @@ Effective values used in the design: `4, 6, 8, 12, 14, 16, 20, 24, 32, 40, 60px`
 ### Typography Scale
 | Role | Font | Weight | Size |
 |---|---|---|---|
-| App title | Jua | — (single weight) | 44px |
-| Subtitle pill | Jua | — | 22px |
-| Star counter | Jua | 700 | 22px |
-| Card number | Jua | 700 | 52px |
-| Card Korean label | Jua | — | 15px |
-| Big info number | Jua | 700 | 160px (100px in portrait) |
-| Info Korean name | Jua | — | 40px (32px portrait) |
-| Info English name | Jua | — | 20px (uppercase, letter-spacing 1px) |
+| App title | Gothic A1 | — (single weight) | 44px |
+| Subtitle pill | Gothic A1 | — | 22px |
+| Star counter | Gothic A1 | 700 | 22px |
+| Card number | Gothic A1 | 700 | 52px |
+| Card Korean label | Gothic A1 | — | 15px |
+| Big info number | Gothic A1 | 700 | 160px (100px in portrait) |
+| Info Korean name | Gothic A1 | — | 40px (32px portrait) |
+| Info English name | Gothic A1 | — | 20px (uppercase, letter-spacing 1px) |
 | Info emoji | (system emoji) | — | 34px |
-| Info caption | Jua | — | 22px |
-| Canvas title | Jua | — | 24px |
-| Step pill | Jua | 700 | 20px |
-| Buttons (default) | Jua | 700 | 22px |
-| Big demo button | Jua | 700 | 28px |
-| Celebration title | Jua | 700 | 48px |
-| Celebration subtitle | Jua | — | 26px |
+| Info caption | Gothic A1 | — | 22px |
+| Canvas title | Gothic A1 | — | 24px |
+| Step pill | Gothic A1 | 700 | 20px |
+| Buttons (default) | Gothic A1 | 700 | 22px |
+| Big demo button | Gothic A1 | 700 | 28px |
+| Celebration title | Gothic A1 | 700 | 48px |
+| Celebration subtitle | Gothic A1 | — | 26px |
 | Celebration emoji | — | — | 100px |
 | Celebration stars row | — | — | 60px |
-| Encourage badge | Jua | 700 | 20px |
+| Encourage badge | Gothic A1 | 700 | 20px |
 
-Fallback stack in the prototype: `'Jua', 'Gaegu', 'Fredoka', sans-serif` (Google Fonts). In the target codebase, substitute a similarly friendly rounded display font for Korean+Latin. If a single family that supports both is unavailable, pair a Korean rounded (e.g. Jua, Gaegu, Ownglyph) with a Latin rounded (Fredoka, Baloo 2, Nunito).
+Fallback stack: `'Gothic A1', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif` (Gothic A1 from Google Fonts). The app teaches a child their first letters, so it shows the plain basic gothic shapes rather than a handwriting-style display face — a rounded display font would give the child letterforms that differ from the ones they will meet in books. Body weight is 700; small parent-facing captions drop to 500. In the target codebase, substitute the platform's standard Korean gothic (e.g. Apple SD Gothic Neo, Pretendard, Noto Sans KR).
 
 ### Border Radius
 - Cards / info panel / canvas panel: 24–32px
@@ -343,7 +343,7 @@ Recreate these in native as a two-layer view: an offset color-tinted layer benea
 **No bitmap image files.** All visual assets are:
 - **SVG paths** for numbers — inline, defined in `number-data.js`.
 - **Emoji glyphs** (native system emoji, U+1F950 range) — no image files.
-- **Fonts** from Google Fonts (Jua, Gaegu, Fredoka) — self-host or use platform-equivalent friendly rounded display fonts.
+- **Font** from Google Fonts (Gothic A1) — self-host or use the platform's standard Korean gothic.
 - **Audio**: no files — synthesized via Web Audio API oscillators in the prototype. Replace with short recorded SFX in production (tap.wav, draw.wav, success.wav, celebrate.wav).
 
 ## Files
