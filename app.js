@@ -646,6 +646,9 @@ function strokeW(data) { return data.strokeWidth || 30; }
 // 점선 가이드의 점 간격. 화살표를 이 주기에 맞춰 놓아야 점 위에 겹쳐 뭉개지지 않는다.
 const DOT_PERIOD = 18;
 
+// SVG 안의 글자(획 번호)는 CSS 를 상속하지 않으므로 따로 지정한다.
+const FONT_FAMILY = "'Gothic A1', 'Apple SD Gothic Neo', sans-serif";
+
 // 획 번호를 붙일 수 있는 최대 획 수. 한글 음절은 획이 8개까지 나오는데,
 // 그만큼의 번호를 한꺼번에 띄우면 글자가 번호에 덮인다. 그 이상이면 첫 획에만
 // 번호를 붙이고 나머지는 시작점 점으로만 표시한다 — 순서는 획순 데모가 보여 준다.
@@ -715,7 +718,7 @@ function playStrokeDemo(auto) {
     const label = svgEl('text', {
       x: m.x, y: m.y + 6, 'text-anchor': 'middle',
       'font-size': 18, 'font-weight': 'bold',
-      fill: data.color, 'font-family': 'Jua, sans-serif'
+      fill: data.color, 'font-family': FONT_FAMILY
     });
     label.textContent = (i + 1);
     overlay.appendChild(label);
@@ -788,7 +791,7 @@ function renderStepTrace(svg, data) {
     const label = svgEl('text', {
       x: m.x, y: m.y + 5, 'text-anchor': 'middle',
       'font-size': 14, 'font-weight': 'bold', fill: 'white',
-      'font-family': 'Jua, sans-serif'
+      'font-family': FONT_FAMILY
     });
     label.textContent = (i + 1);
     svg.appendChild(label);

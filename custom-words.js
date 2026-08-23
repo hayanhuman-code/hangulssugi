@@ -35,14 +35,22 @@
     return order.indexOf(word) >= 0 && !(window.HANGUL_DATA[word] || {}).custom;
   }
 
+  // '곰은' / '나비는' — 받침에 따라 조사를 고른다.
+  // app.js 의 withParticle 은 '단어+조사'를 돌려주므로 단어를 덜어 조사만 남긴다.
+  // validate() 는 사용자 조작 시점에만 불리니 그때는 app.js 가 이미 올라와 있다.
+  function eun(word) {
+    const f = window.withParticle;
+    return f ? f(word, '은', '는').slice(word.length) : '은(는)';
+  }
+
   // 왜 안 되는지 부모에게 그대로 보여 줄 문구를 함께 돌려준다
   function validate(text) {
     const w = String(text || '').trim();
     if (!w) return { ok: false, reason: '단어를 넣어 주세요.' };
     if (!HANGUL.test(w)) return { ok: false, reason: '한글 낱말만 넣을 수 있어요. (예: 지우)' };
     if (w.length > MAX_LEN) return { ok: false, reason: MAX_LEN + '글자까지 넣을 수 있어요.' };
-    if (list.some(c => c.word === w)) return { ok: false, reason: `‘${w}’ 은(는) 이미 있어요.` };
-    if (isBuiltIn(w)) return { ok: false, reason: `‘${w}’ 은(는) 이미 단어 목록에 있어요.` };
+    if (list.some(c => c.word === w)) return { ok: false, reason: `‘${w}’${eun(w)} 이미 있어요.` };
+    if (isBuiltIn(w)) return { ok: false, reason: `‘${w}’${eun(w)} 이미 단어 목록에 있어요.` };
     if (list.length >= MAX_COUNT) return { ok: false, reason: `단어는 ${MAX_COUNT}개까지 넣을 수 있어요.` };
     if (!window.buildHangulItem(w)) return { ok: false, reason: '이 낱말은 아직 쓰기를 만들 수 없어요.' };
     return { ok: true, word: w };
