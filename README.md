@@ -548,6 +548,21 @@ git-ignored; regenerate it rather than committing it.
 `.category-tab` 은 이제 어느 폭에서도 줄바꿈하지 않는다(`white-space: nowrap`). 폭이 모자라면
 접는 게 아니라 글자를 줄인다.
 
+### Stage H: 폰에서 '다 했어요'에 손이 닿지 않던 문제
+
+폰에서는 버튼 바가 아예 화면 밖에 있었다. 스크롤도 막아 두었으니 아이는 다음 단계로 갈
+방법이 없었다.
+
+- **`100vh` 는 모바일 브라우저에서 '보이는 높이'가 아니다.** 주소창과 아래 툴바가 숨겨진
+  상태의 높이라, 실제로 보이는 영역은 그보다 150~180px 작다. 그 차이만큼 화면 아래쪽이
+  툴바 뒤에 가려졌다. `100dvh`(지금 실제로 보이는 높이)를 함께 선언해 해결했다.
+- **세로 분기가 폰 분기를 덮어쓰고 있었다.** 세로 블록(`max-aspect-ratio: 1/1`)이 폰
+  블록(`max-width: 560px`)보다 뒤에 있어서, 세로 블록에 적은 크기 값이 폰에서도 이겼다.
+  폰의 34px 글자가 60px 로, 56px 소리 버튼이 112px 로 되살아나 아이폰 SE 에서 캔버스가
+  129px 까지 눌렸다. 세로 블록에는 배치만 남기고 크기는 태블릿 전용 블록으로 옮겼다.
+- 폰의 정보 패널이 화면의 3분의 1을 먹고 있었다. 뜻 그림과 설명을 줄여 그 높이를 캔버스에
+  돌려줬다 — 정보 패널 170 → 97px, 캔버스는 아이폰에서 282 → 355px, SE 에서 129 → 246px.
+
 ### Known gaps
 - Screen-reader coverage is partial: home cards and the main controls have labels, but the
   canvas guide and the drawing surface are not described.
