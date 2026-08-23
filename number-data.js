@@ -214,8 +214,11 @@
   }
 
   // ---------- 숫자별 메타 ----------
-  // 획 색은 캔버스 배경(#F0F4FF) 대비 3:1 이상이 되도록 v1보다 한 단계 진하게 잡았다.
-  // 카드 배경(bgColor)은 파스텔 톤 그대로 유지.
+  // 획 색은 카테고리마다 하나다. 숫자 21개가 저마다 다른 색을 쓰던 시절에는
+  // 크림 캔버스(#FFFDF8) 대비가 3.07~3.68 밖에 나오지 않아 시안이 요구한 4.5:1 을
+  // 채우지 못했다. #2F6BD8 은 4.90 이다. 카드 배경(bgColor)의 파스텔은 그대로 두어
+  // 아이가 카드를 색으로 기억하는 즐거움은 살린다.
+  const DEEP = '#2F6BD8';
   const HUE = [
     { color: '#E8467E', bgColor: '#FFE0EC' },  // 0
     { color: '#E04343', bgColor: '#FFE0E0' },  // 1
@@ -268,7 +271,7 @@
       counter: META[n].counter,
       en: META[n].en,
       object: META[n].object,
-      color: hue.color,
+      color: DEEP,
       bgColor: hue.bgColor,
       strokeWidth: SW,
       viewBox: built.viewBox,

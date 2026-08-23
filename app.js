@@ -35,6 +35,10 @@ const STATE = {
   demoToken: 0,          // 취소된 데모의 뒤늦은 콜백을 무시하기 위한 토큰
   spokenFor: null,       // 이름을 읽어준 항목 (단계 이동 때 반복 방지)
   infoFor: null,         // 정보 패널을 그려둔 항목 (단계 이동 때 재렌더 방지)
+  page: 0,               // 홈 그리드에서 보고 있는 쪽
+  pages: 1,              // 지금 탭의 전체 쪽 수
+  swiped: false,         // 방금 손가락으로 쪽을 넘겼는가 (카드 오탭 방지)
+  penWidth: 18,          // 아이 선 굵기 — 가이드 띠에 맞춰 매번 계산한다
 };
 
 // ---------- 배울 것 목록 ----------
@@ -91,7 +95,7 @@ function isNumberItem(item) { return !!item && item.category === 'number'; }
 
 // 앞 항목을 한 번이라도 끝내야 다음이 열린다. 다만 첫 화면이 자물쇠뿐이지
 // 않도록 각 탭의 앞 몇 개는 처음부터 열어 둔다.
-const HEAD_START = 3;
+const HEAD_START = 6;
 function isUnlocked(list, index) {
   if (index < HEAD_START) return true;
   // 부모가 방금 넣은 단어까지 잠가 두면 넣은 보람이 없다
@@ -186,23 +190,27 @@ function svgEl(tag, attrs) {
   return el;
 }
 
-// ---------- 획 시작 표식 위치 ----------
-// 4와 5는 두 획이 완전히 같은 점에서 시작한다(거리 0). 좌표 그대로 찍으면 나중에 그린
-// 2번 표식이 1번을 100% 덮어, 아이 화면에는 "2"만 남고 1번 획의 시작점이 사라진다.
-// 겹치는 표식은 자기 획을 따라 앞으로 밀어 둘 다 보이게 한다 — 여전히 같은 획 위이므로
-// 어느 획의 시작인지는 그대로 읽힌다.
-function placeMarker(pathEl, start, placed, minSep) {
-  const clash = q => placed.some(m => Math.hypot(m.x - q.x, m.y - q.y) < minSep);
-  let pt = { x: start[0], y: start[1] };
-  if (clash(pt)) {
-    const len = pathEl.getTotalLength();
-    for (let d = minSep; d <= len; d += 4) {
-      const q = pathEl.getPointAtLength(d);
-      if (!clash(q)) { pt = { x: q.x, y: q.y }; break; }
-    }
-  }
-  placed.push(pt);
-  return pt;
+// ---------- 아이콘 ----------
+// 이모지는 OS 마다 그림이 달라지고, 애플의 3D 이모지는 납작한 화면 톤과 어긋난다.
+// 조작 버튼·표시는 전부 단색 SVG 로 그린다. 내용으로 쓰는 이모지(사과, 가방)는 그대로 둔다.
+const ICONS = {
+  back:   '<path d="M15 5 L8 12 L15 19"/>',
+  replay: '<path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 3.5v5h-5"/>',
+  erase:  '<path d="M7.5 20h12"/><path d="M15.2 4.6 4.6 15.2a2 2 0 0 0 0 2.8l1.4 1.4a2 2 0 0 0 2.8 0L19.4 8.8a2 2 0 0 0 0-2.8L18 4.6a2 2 0 0 0-2.8 0Z"/>',
+  sound:  '<path d="M11 5 6.5 9H3v6h3.5L11 19Z"/><path d="M15 9.5a3.5 3.5 0 0 1 0 5"/><path d="M17.8 6.4a7.5 7.5 0 0 1 0 11.2"/>',
+  lock:   '<rect x="4.5" y="10.5" width="15" height="9.5" rx="3"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+  plus:   '<path d="M12 5.5v13"/><path d="M5.5 12h13"/>',
+  check:  '<path d="M5 12.5l4.5 4.5L19 7.5"/>'
+};
+function icon(name, size, cls) {
+  return '<svg class="ico-svg ' + (cls || '') + '" width="' + size + '" height="' + size + '"' +
+    ' viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"' +
+    ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + '</svg>';
+}
+function starIcon(size, filled) {
+  return '<svg class="ico-svg' + (filled ? '' : ' empty') + '" width="' + size + '" height="' + size + '"' +
+    ' viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+    '<path d="M12 3.2l2.7 5.7 6.3.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.8l6.3-.9z"/></svg>';
 }
 
 // ---------- 오디오 (간단한 신디사이저) ----------
@@ -268,69 +276,152 @@ function renderCategoryTabs() {
       if (STATE.category === cat.key) return;
       sfxTap();
       STATE.category = cat.key;
+      STATE.page = 0;
       renderHome();
     });
     bar.appendChild(tab);
   });
-  document.getElementById('homeSubtitle').textContent =
-    withParticle(categoryOf(STATE.category).label, '을', '를') + ' 골라볼까요?';
 }
 
+// 한 쪽에 담는 카드 수와 열 수. 시안의 그리드 대응 규칙 그대로다.
+const PAGE_SHAPE = {
+  number:    { cls: 'cols-7', per: 21 },
+  consonant: { cls: 'cols-7', per: 21 },
+  vowel:     { cls: 'cols-7', per: 21 },
+  syllable:  { cls: 'cols-5', per: 15 },
+  word:      { cls: 'cols-4', per: 16 }
+};
+
 function renderGrid() {
-  const grid = document.getElementById('numberGrid');
+  const track = document.getElementById('numberGrid');
   const list = itemsOf(STATE.category);
-  const isWord = STATE.category === 'word';
-  // 한 화면에 다 들어가지 않는 탭은 위에서부터 채우고 그리드 안에서 스크롤한다
-  const many = list.length > 24;
-  grid.className = 'number-grid' + (isWord ? ' cols-5 wide-cards' : '') + (many ? ' scrolly' : '');
-  grid.setAttribute('aria-label', '연습할 ' + categoryOf(STATE.category).label + ' 고르기');
-  grid.innerHTML = '';
+  const shape = PAGE_SHAPE[STATE.category] || PAGE_SHAPE.number;
+  track.setAttribute('aria-label', '연습할 ' + categoryOf(STATE.category).label + ' 고르기');
 
-  list.forEach((data, index) => {
-    const stars = STATE.progress[data.id] || 0;
-    const open = isUnlocked(list, index);
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = 'number-card' + (open ? '' : ' locked');
-    card.setAttribute('role', 'listitem');
-    if (open) {
-      card.style.background = `linear-gradient(135deg, ${data.bgColor} 0%, white 100%)`;
-      card.style.borderColor = stars > 0 ? data.color : 'transparent';
-    }
-    card.setAttribute('aria-label', cardLabel(data, stars, open));
-
-    const starRow = open
-      ? `<div class="card-stars" aria-hidden="true">${
-          [0,1,2].map(i => `<span class="star ${i<stars?'':'empty'}">${i<stars?'⭐':'☆'}</span>`).join('')
-        }</div>`
-      : '<div class="card-lock" aria-hidden="true">🔒</div>';
-
-    // 단어는 뜻 그림을 함께 보여 주고, 나머지는 글자와 읽는 법을 보여 준다.
-    const body = isWord
-      ? `<div class="word-emoji" aria-hidden="true">${data.emoji || ''}</div>
-         <div class="num word-text" style="color:${data.color}" aria-hidden="true">${data.id}</div>`
-      : `<div class="num" style="color:${data.color}" aria-hidden="true">${data.id}</div>
-         <div class="ko" aria-hidden="true">${data.ko}</div>`;
-
-    card.innerHTML = starRow + body;
-    card.addEventListener('click', () => {
-      if (!open) {
-        // 잠긴 카드 — 흔들지 않고 살짝 통통 튀기만 한다
-        card.classList.remove('bounce');
-        void card.offsetWidth;
-        card.classList.add('bounce');
-        sfxTap();
-        speak('다음에 만나요');
-        return;
-      }
-      sfxTap();
-      openPractice(data.id);
-    });
-    grid.appendChild(card);
-  });
-
+  const cards = list.map((data, index) => buildCard(data, index, list));
   // 아이 이름처럼 교재에 없는 말은 부모가 직접 넣는다
-  if (isWord && window.CustomWords) grid.appendChild(addWordCard());
+  if (STATE.category === 'word' && window.CustomWords) cards.push(addWordCard());
+
+  STATE.pages = Math.max(1, Math.ceil(cards.length / shape.per));
+  if (STATE.page >= STATE.pages) STATE.page = STATE.pages - 1;
+
+  track.innerHTML = '';
+  for (let p = 0; p < STATE.pages; p++) {
+    const page = document.createElement('div');
+    page.className = 'grid-page ' + shape.cls;
+    cards.slice(p * shape.per, (p + 1) * shape.per).forEach(c => page.appendChild(c));
+    track.appendChild(page);
+  }
+  renderGridDots();
+  applyPage();
+}
+
+function buildCard(data, index, list) {
+  const isWord = STATE.category === 'word';
+  const stars = STATE.progress[data.id] || 0;
+  const open = isUnlocked(list, index);
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'number-card' + (open ? '' : ' locked');
+  card.setAttribute('role', 'listitem');
+  if (open) card.style.borderColor = stars > 0 ? data.color : data.bgColor;
+  card.setAttribute('aria-label', cardLabel(data, stars, open));
+
+  const corner = open
+    ? `<div class="card-stars" aria-hidden="true">${
+        [0,1,2].map(i => starIcon(18, i < stars)).join('')
+      }</div>`
+    : `<div class="card-lock" aria-hidden="true">${icon('lock', 22)}</div>`;
+
+  // 단어는 뜻 그림을 함께 보여 주고, 나머지는 글자와 읽는 법을 보여 준다.
+  const body = isWord
+    ? `<div class="word-emoji" style="background:${open ? data.bgColor : 'transparent'}" aria-hidden="true">${data.emoji || ''}</div>
+       <div class="num word-text" style="color:${data.color}" aria-hidden="true">${data.id}</div>`
+    : `<div class="num" style="color:${data.color}" aria-hidden="true">${data.id}</div>
+       <div class="ko" aria-hidden="true">${data.ko}</div>`;
+
+  card.innerHTML = corner + body;
+  card.addEventListener('click', () => {
+    if (STATE.swiped) return;         // 쪽을 넘기던 손가락은 카드를 고른 것이 아니다
+    if (!open) {
+      // 잠긴 카드 — 흔들지 않고 살짝 통통 튀기만 한다
+      card.classList.remove('bounce');
+      void card.offsetWidth;
+      card.classList.add('bounce');
+      sfxTap();
+      speak('다음에 만나요');
+      return;
+    }
+    sfxTap();
+    openPractice(data.id);
+  });
+  return card;
+}
+
+// ---------- 쪽 넘기기 ----------
+// 만 4세는 세로 스크롤을 잘 하지 못한다. 넘치는 항목은 스크롤 대신 옆으로 넘기고,
+// 지금 몇 쪽인지 아래 점으로 알려 준다.
+function renderGridDots() {
+  const dots = document.getElementById('gridDots');
+  dots.classList.toggle('hidden', STATE.pages <= 1);
+  dots.innerHTML = '';
+  for (let p = 0; p < STATE.pages; p++) {
+    const d = document.createElement('button');
+    d.type = 'button';
+    d.className = 'grid-dot' + (p === STATE.page ? ' on' : '');
+    d.setAttribute('aria-label', (p + 1) + '쪽 보기');
+    d.setAttribute('aria-selected', p === STATE.page ? 'true' : 'false');
+    d.addEventListener('click', () => goToPage(p));
+    dots.appendChild(d);
+  }
+}
+
+function applyPage() {
+  const track = document.getElementById('numberGrid');
+  track.style.transform = `translateX(${-STATE.page * 100}%)`;
+}
+
+function goToPage(p) {
+  const next = Math.max(0, Math.min(STATE.pages - 1, p));
+  if (next === STATE.page) return;
+  sfxTap();
+  STATE.page = next;
+  applyPage();
+  renderGridDots();
+}
+
+// 손가락으로 밀어서도 넘어간다
+function initGridSwipe() {
+  const view = document.getElementById('gridViewport');
+  const track = document.getElementById('numberGrid');
+  let id = null, x0 = 0, dx = 0;
+
+  view.addEventListener('pointerdown', e => {
+    if (id !== null || STATE.pages <= 1) return;
+    id = e.pointerId; x0 = e.clientX; dx = 0;
+    STATE.swiped = false;
+    track.classList.add('dragging');
+  });
+  view.addEventListener('pointermove', e => {
+    if (e.pointerId !== id) return;
+    dx = e.clientX - x0;
+    if (Math.abs(dx) > 12) STATE.swiped = true;
+    track.style.transform = `translateX(calc(${-STATE.page * 100}% + ${dx}px))`;
+  });
+  const finish = e => {
+    if (e.pointerId !== id) return;
+    id = null;
+    track.classList.remove('dragging');
+    const step = dx < -60 ? 1 : dx > 60 ? -1 : 0;
+    const before = STATE.page;
+    STATE.page = Math.max(0, Math.min(STATE.pages - 1, STATE.page + step));
+    applyPage();
+    if (STATE.page !== before) { sfxTap(); renderGridDots(); }
+    // 카드의 click 은 pointerup 뒤에 온다. 그때까지만 '민 것'으로 기억한다.
+    later(() => { STATE.swiped = false; }, 0);
+  };
+  view.addEventListener('pointerup', finish);
+  view.addEventListener('pointercancel', finish);
 }
 
 function addWordCard() {
@@ -339,7 +430,8 @@ function addWordCard() {
   card.className = 'number-card add-word';
   card.setAttribute('role', 'listitem');
   card.setAttribute('aria-label', '단어 직접 넣기. 부모가 쓰는 기능이에요');
-  card.innerHTML = '<div class="word-emoji" aria-hidden="true">➕</div><div class="add-word-label">단어 넣기</div>';
+  card.innerHTML = '<div class="word-emoji" aria-hidden="true">' + icon('plus', 30) + '</div>' +
+    '<div class="add-word-label">단어 넣기</div>';
   card.addEventListener('click', () => { sfxTap(); openWordSheet(); });
   return card;
 }
@@ -421,6 +513,8 @@ function cardLabel(data, stars, open) {
 }
 
 function updateTotalStars() {
+  const ico = document.getElementById('totalStarsIcon');
+  if (ico && !ico.firstChild) ico.innerHTML = starIcon(30, true);
   const total = Object.values(STATE.progress).reduce((a,b) => a+b, 0);
   document.getElementById('totalStarsNum').textContent = total;
 }
@@ -439,7 +533,7 @@ function openPractice(id) {
   STATE.currentId = String(id);
   STATE.partIndex = 0;
   STATE.step = 0;
-  document.getElementById('home').style.display = 'none';
+  document.getElementById('home').classList.remove('active');
   document.getElementById('practice').classList.add('active');
   renderPractice();
 }
@@ -451,7 +545,7 @@ function goHome() {
   STATE.infoFor = null;
   if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   document.getElementById('practice').classList.remove('active');
-  document.getElementById('home').style.display = 'flex';
+  document.getElementById('home').classList.add('active');
   renderHome();
 }
 
@@ -511,7 +605,7 @@ function renderCountingObjects(data) {
     }
   }
   objs.appendChild(speakableCaption(
-    (count === 0 ? `${data.object.label} 0개` : `${data.object.label} ${count}개`) + ' 🔊',
+    count === 0 ? `${data.object.label} 0개` : `${data.object.label} ${count}개`,
     objectPhrase(data)));
 }
 
@@ -526,7 +620,7 @@ function renderExampleWord(data) {
     e.textContent = data.emoji;
     objs.appendChild(e);
   }
-  objs.appendChild(speakableCaption(data.word + ' 🔊', data.word));
+  objs.appendChild(speakableCaption(data.word, data.word));
 }
 
 function speakableCaption(text, label) {
@@ -551,6 +645,7 @@ function renderPractice() {
   document.querySelectorAll('.step-dot').forEach((el, i) => {
     el.classList.toggle('active', i === STATE.step);
     el.classList.toggle('done', i < STATE.step);
+    el.querySelector('.step-num').innerHTML = i < STATE.step ? icon('check', 22) : String(i + 1);
   });
 
   // 단계별 캔버스 세팅
@@ -563,69 +658,62 @@ function renderPractice() {
   }
 }
 
+// 칸 둘레에 여백을 두른 viewBox. 가이드와 데모가 같은 값을 써야 두 겹이 어긋나지 않는다.
+function padViewBox(vb, pad) {
+  const n = String(vb).trim().split(/\s+/).map(Number);
+  if (n.length !== 4 || n.some(isNaN)) return vb;
+  return `${n[0] - pad} ${n[1] - pad} ${n[2] + pad * 2} ${n[3] + pad * 2}`;
+}
+
 function renderStep() {
   const item = currentItem();
   const data = currentGlyph();
-  const what = isNumberItem(item) ? '숫자' : '글자';
   // 단어는 지금 몇 번째 글자를 쓰는지 알려 준다
   const where = partCount() > 1 ? ` (${item.id} 중 ‘${data.id}’)` : '';
   const titleEl = document.getElementById('canvasTitle');
   const svg = document.getElementById('guideSvg');
-  const canvas = document.getElementById('drawCanvas');
-  const demoBtn = document.getElementById('demoBtn');
   const actionBar = document.getElementById('actionBar');
 
-  const viewBox = data.viewBox || '0 0 200 200';
+  // 시작 배지와 끝 화살표는 획 바깥에 놓이므로, 칸 둘레에 그만큼의 여백을 둔다.
+  // 여백이 없으면 위쪽에서 시작하는 획(ㅏ, ㅣ 등)의 배지가 위로 밀려 잘린다.
+  const viewBox = padViewBox(data.viewBox || '0 0 200 200', strokeW(data) * 1.25);
   svg.setAttribute('viewBox', viewBox);
   document.getElementById('demoSvg').setAttribute('viewBox', viewBox);
 
   // 단계가 바뀌면 이전 단계의 데모/예약 콜백을 전부 끊는다.
   clearTimers();
   stopStrokeDemo();
+  hideStamp();
 
   STATE.strokes = [];
-  document.getElementById('canvasWrapper').classList.remove('with-replay');
   clearCanvas();
   resizeCanvas();
 
+  // 세 단계 모두 버튼 자리가 같다. 없는 버튼은 자리를 비워 두고 뒤 버튼이 당겨오지 않는다.
+  const replay = `<button type="button" class="btn btn-icon" id="demoBtn" onclick="playStrokeDemo()"
+      aria-label="쓰는 순서 다시 보기">${icon('replay', 46)}<span>다시보기</span></button>`;
+  const erase = `<button type="button" class="btn btn-icon" onclick="clearAll()"
+      aria-label="쓴 것 지우기">${icon('erase', 46)}<span>지우기</span></button>`;
+  const emptySlot = '<div class="btn-slot" aria-hidden="true"></div>';
+  const bar = (second, cta) => `${replay}${second}<div class="action-spacer"></div>${cta}`;
+
   if (STATE.step === 0) {
-    titleEl.innerHTML = `👀 ${what} 모양을 잘 보세요${where}`;
+    titleEl.textContent = `잘 봐요${where}`;
     renderStepView(svg, data);
-    // 진입하자마자 획순을 한 번 보여준다 (버튼이 글자를 가리지 않도록).
-    demoBtn.classList.remove('hidden');
-    document.getElementById('canvasWrapper').classList.add('with-replay');
+    // 진입하자마자 획순을 한 번 보여준다.
     later(() => playStrokeDemo(true), 350);
-    actionBar.innerHTML = `
-      <button type="button" class="btn btn-icon" onclick="speakNumber('ko')" aria-label="숫자 이름 들려주기">
-        <span class="ico">🔊</span><span class="lbl">들어보기</span></button>
-      <button type="button" class="btn btn-primary" onclick="nextStep()">따라 써볼까요? →</button>
-    `;
+    actionBar.innerHTML = bar(emptySlot,
+      '<button type="button" class="btn btn-cta" onclick="nextStep()">따라 써 볼래요</button>');
   } else if (STATE.step === 1) {
-    titleEl.innerHTML = `✏️ 점선을 따라 손가락으로 그려보세요${where}`;
+    titleEl.textContent = `점선을 따라가요${where}`;
     renderStepTrace(svg, data);
-    demoBtn.classList.add('hidden');
-    actionBar.innerHTML = `
-      <button type="button" class="btn btn-icon" onclick="playStrokeDemo()" aria-label="쓰는 순서 다시 보기">
-        <span class="ico">🎬</span><span class="lbl">다시 보기</span></button>
-      <button type="button" class="btn btn-icon" onclick="clearAll()" aria-label="쓴 것 지우기">
-        <span class="ico">🧽</span><span class="lbl">지우기</span></button>
-      <button type="button" class="btn btn-icon" onclick="speakNumber('ko')" aria-label="숫자 이름 들려주기">
-        <span class="ico">🔊</span><span class="lbl">들어보기</span></button>
-      <button type="button" class="btn btn-primary" onclick="checkTrace()">다 썼어요! ✨</button>
-    `;
+    actionBar.innerHTML = bar(erase,
+      '<button type="button" class="btn btn-cta" onclick="checkTrace()">다 했어요</button>');
   } else if (STATE.step === 2) {
-    titleEl.innerHTML = `🌟 이번엔 혼자서 써볼까요?${where}`;
+    titleEl.textContent = `이번엔 혼자!${where}`;
     renderStepSolo(svg, data);
-    demoBtn.classList.add('hidden');
-    actionBar.innerHTML = `
-      <button type="button" class="btn btn-icon" onclick="playStrokeDemo()" aria-label="쓰는 순서 힌트 보기">
-        <span class="ico">💡</span><span class="lbl">힌트</span></button>
-      <button type="button" class="btn btn-icon" onclick="clearAll()" aria-label="쓴 것 지우기">
-        <span class="ico">🧽</span><span class="lbl">지우기</span></button>
-      <button type="button" class="btn btn-icon" onclick="speakNumber('ko')" aria-label="숫자 이름 들려주기">
-        <span class="ico">🔊</span><span class="lbl">들어보기</span></button>
-      <button type="button" class="btn btn-success" onclick="finishPractice()">완성했어요! 🎉</button>
-    `;
+    actionBar.innerHTML = bar(erase,
+      '<button type="button" class="btn btn-cta" onclick="finishPractice()">다 했어요</button>');
   }
 }
 
@@ -643,8 +731,13 @@ function prevStep() {
 // ---------- 1단계: 보기 (정적 숫자 + 획순 데모) ----------
 function strokeW(data) { return data.strokeWidth || 30; }
 
-// 점선 가이드의 점 간격. 화살표를 이 주기에 맞춰 놓아야 점 위에 겹쳐 뭉개지지 않는다.
-const DOT_PERIOD = 18;
+// 점선 가이드 — 시안의 '굵기 5 · dash 4 / gap 16'(띠 44 기준)을 획 굵기에 대한 비율로 옮겼다.
+const DOT_WIDTH = 0.12;
+const DOT_DASH = 0.17;
+const DOT_GAP = 0.30;
+
+// 3단계 윤곽선의 속을 덮는 색. 캔버스 배경과 같아야 한다(--canvas).
+const CANVAS_BG = '#FFFDF8';
 
 // SVG 안의 글자(획 번호)는 CSS 를 상속하지 않으므로 따로 지정한다.
 const FONT_FAMILY = "'Gothic A1', 'Apple SD Gothic Neo', sans-serif";
@@ -707,17 +800,19 @@ function playStrokeDemo(auto) {
     cumulativeDelay += dur + 0.3;
   });
 
-  // 시작점 표식 — 같은 좌표에서 시작하는 획끼리 겹치지 않게 배치
+  // 시작 표식 — 따라쓰기 가이드와 같은 규칙으로 획 바깥에 놓는다
+  const sw = strokeW(data);
+  const r = sw * 0.45;
   const marks = [];
   data.strokes.forEach((stroke, i) => {
-    const m = placeMarker(paths[i], stroke.start, marks, 32);
+    const m = placeOutside(paths[i], 0, sw, r, marks);
     overlay.appendChild(svgEl('circle', {
-      cx: m.x, cy: m.y, r: 14, fill: 'white',
-      stroke: data.color, 'stroke-width': 5
+      cx: m.x, cy: m.y, r: r, fill: 'white',
+      stroke: data.color, 'stroke-width': sw * 0.17
     }));
     const label = svgEl('text', {
-      x: m.x, y: m.y + 6, 'text-anchor': 'middle',
-      'font-size': 18, 'font-weight': 'bold',
+      x: m.x, y: m.y + r * 0.36, 'text-anchor': 'middle',
+      'font-size': r * 1.1, 'font-weight': 'bold',
       fill: data.color, 'font-family': FONT_FAMILY
     });
     label.textContent = (i + 1);
@@ -742,9 +837,11 @@ function stopStrokeDemo() {
   if (btn) btn.disabled = false;
 }
 
-// ---------- 2단계: 따라쓰기 (연한 띠 + 가는 점선 + 화살표) ----------
-// 교재의 점선 칸처럼 세 겹으로 나눈다. 예전엔 두께 24짜리 굵은 점선 하나였는데,
-// 점선이 아니라 울퉁불퉁한 덩어리로 보이고 그 위의 화살표가 묻혔다.
+// ---------- 2단계: 따라쓰기 (연한 띠 + 가는 점선 + 시작 배지 + 끝 화살표) ----------
+// 교재의 점선 칸처럼 세 겹으로 나눈다. 굵기와 진하기로 층을 만든다:
+//   띠 16% (굵기 sw) → 점선 70% (굵기 sw*0.115) → 배지·화살표 100%.
+// 배지와 화살표는 획 '바깥'에 놓는다. 획 위에 얹으면 아이가 이제부터 그으려는
+// 바로 그 부분(첫 획의 시작 캡)을 가린다.
 function renderStepTrace(svg, data) {
   svg.innerHTML = '';
   const sw = strokeW(data);
@@ -761,69 +858,97 @@ function renderStepTrace(svg, data) {
   data.strokes.forEach(s => {
     svg.appendChild(svgEl('path', {
       d: s.d, class: 'stroke-outline guide-dots',
-      stroke: data.color, 'stroke-width': 7,
-      'stroke-dasharray': '0.1 ' + DOT_PERIOD
+      stroke: data.color, 'stroke-width': sw * DOT_WIDTH,
+      'stroke-dasharray': (sw * DOT_DASH) + ' ' + (sw * DOT_GAP)
     }));
   });
 
-  // ③ 방향 화살표 — 띠 위에 또렷하게
-  data.strokes.forEach(s => {
-    const probe = svgEl('path', { d: s.d, fill: 'none', stroke: 'none' });
-    svg.appendChild(probe);
-    addArrowsAlongPath(svg, probe, data.color);
-    probe.remove();
-  });
-
-  // ④ 시작점 + 획 번호 (맨 위) — 같은 좌표에서 시작하는 획끼리 겹치지 않게 배치
+  // ③ 시작 배지와 끝 화살표 — 둘 다 획 바깥
   const numbered = data.strokes.length <= MAX_NUMBERED;
-  const marks = [];
+  const placed = [];
+  const badgeR = sw * 0.42;
   data.strokes.forEach((s, i) => {
     const probe = svgEl('path', { d: s.d, fill: 'none', stroke: 'none' });
     svg.appendChild(probe);
-    const m = placeMarker(probe, s.start, marks, 26);
-    probe.remove();
     const withNumber = numbered || i === 0;
+    const r = withNumber ? badgeR : badgeR * 0.5;
+    const b = placeOutside(probe, 0, sw, r, placed);
     svg.appendChild(svgEl('circle', {
-      cx: m.x, cy: m.y, r: withNumber ? 11 : 6, fill: data.color,
-      stroke: 'white', 'stroke-width': 2, class: 'start-dot'
+      cx: b.x, cy: b.y, r: r, fill: data.color,
+      stroke: 'white', 'stroke-width': sw * 0.09, class: 'start-badge'
     }));
-    if (!withNumber) return;
-    const label = svgEl('text', {
-      x: m.x, y: m.y + 5, 'text-anchor': 'middle',
-      'font-size': 14, 'font-weight': 'bold', fill: 'white',
-      'font-family': FONT_FAMILY
-    });
-    label.textContent = (i + 1);
-    svg.appendChild(label);
+    if (withNumber) {
+      const label = svgEl('text', {
+        x: b.x, y: b.y + r * 0.36, 'text-anchor': 'middle',
+        'font-size': r * 1.1, 'font-weight': 'bold', fill: 'white',
+        'font-family': FONT_FAMILY
+      });
+      label.textContent = (i + 1);
+      svg.appendChild(label);
+    }
+    addEndArrow(svg, probe, data.color, sw);
+    probe.remove();
   });
 }
-function addArrowsAlongPath(svg, pathEl, color) {
+
+// 획의 끝점 바깥에 화살촉 하나. 예전에는 띠 한가운데에 두세 개를 흩뿌렸는데,
+// 방향이 아니라 점선을 갉아먹은 얼룩으로 읽혔다.
+function addEndArrow(svg, pathEl, color, sw) {
   const len = pathEl.getTotalLength();
-  const numArrows = Math.max(2, Math.floor(len / 95));
-  for (let i = 1; i <= numArrows; i++) {
-    // 점선의 점이 놓이는 자리에 정확히 얹어, 화살표가 점을 덮어 대신하게 한다
-    const t = Math.round((i / (numArrows + 1)) * len / DOT_PERIOD) * DOT_PERIOD;
-    const p1 = pathEl.getPointAtLength(t);
-    const p2 = pathEl.getPointAtLength(Math.min(len, t + 8));
-    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
-    // 흰 테두리를 둘러 연한 띠 위에서도 화살표가 묻히지 않게 한다
-    svg.appendChild(svgEl('polygon', {
-      points: '-5,-6 9,0 -5,6',
-      fill: color, stroke: 'white', 'stroke-width': 2,
-      'stroke-linejoin': 'round',
-      transform: `translate(${p1.x},${p1.y}) rotate(${angle})`,
-      class: 'arrow-head'
-    }));
-  }
+  if (len < sw) return;
+  const tip = pathEl.getPointAtLength(len);
+  const back = pathEl.getPointAtLength(Math.max(0, len - Math.min(12, len * 0.2)));
+  const ang = Math.atan2(tip.y - back.y, tip.x - back.x);
+  const gap = sw * 0.85;
+  const cx = tip.x + Math.cos(ang) * gap;
+  const cy = tip.y + Math.sin(ang) * gap;
+  const a = sw * 0.36;
+  svg.appendChild(svgEl('polygon', {
+    points: `${-a * 0.7},${-a} ${a * 0.9},0 ${-a * 0.7},${a}`,
+    fill: color,
+    transform: `translate(${cx},${cy}) rotate(${ang * 180 / Math.PI})`
+  }));
 }
 
-// ---------- 3단계: 혼자쓰기 (아주 흐린 가이드박스) ----------
+// 획 위의 한 점에서 획 '바깥'으로 밀어낸 자리를 찾는다. 시작 배지는 획이 나아가는
+// 반대쪽으로 밀고, 이미 놓인 배지와 부딪히면 각도를 틀어 피한다 — 4·5처럼 두 획이
+// 완전히 같은 점에서 시작하는 글자가 있기 때문이다.
+function placeOutside(pathEl, at, sw, r, placed) {
+  const len = pathEl.getTotalLength();
+  const p = pathEl.getPointAtLength(at);
+  const ahead = pathEl.getPointAtLength(Math.min(len, at + Math.min(12, len * 0.2)));
+  const base = Math.atan2(ahead.y - p.y, ahead.x - p.x) + Math.PI;   // 나아가는 반대 방향
+  const dist = sw / 2 + r + sw * 0.12;
+  const clash = q => placed.some(m => Math.hypot(m.x - q.x, m.y - q.y) < (m.r + r) * 1.05);
+  let pick = null;
+  [0, 40, -40, 80, -80, 120, -120].forEach(deg => {
+    if (pick) return;
+    const a = base + deg * Math.PI / 180;
+    const q = { x: p.x + Math.cos(a) * dist, y: p.y + Math.sin(a) * dist, r: r };
+    if (!clash(q)) pick = q;
+  });
+  if (!pick) pick = { x: p.x + Math.cos(base) * dist * 2, y: p.y + Math.sin(base) * dist * 2, r: r };
+  placed.push(pick);
+  return pick;
+}
+
+// ---------- 3단계: 혼자쓰기 (아주 흐린 외곽선만) ----------
+// 2단계와 같은 '띠'를 연하게 깔면 결국 따라 그릴 면이 그대로 남는다.
+// 면이 아니라 윤곽선이어야 다른 과제로 읽힌다.
 function renderStepSolo(svg, data) {
   svg.innerHTML = '';
+  const sw = strokeW(data);
   data.strokes.forEach(s => {
     svg.appendChild(svgEl('path', {
-      d: s.d, class: 'stroke-outline stroke-faint',
-      stroke: data.color, 'stroke-width': strokeW(data) * 0.8
+      d: s.d, class: 'stroke-outline',
+      stroke: data.color, 'stroke-width': sw, opacity: 0.28
+    }));
+  });
+  // 안쪽을 캔버스 색으로 덮어 두께 sw*0.1 쯤의 실선 윤곽만 남긴다
+  data.strokes.forEach(s => {
+    svg.appendChild(svgEl('path', {
+      d: s.d, class: 'stroke-outline',
+      stroke: CANVAS_BG, 'stroke-width': sw * 0.8
     }));
   });
 }
@@ -841,6 +966,15 @@ function resizeCanvas() {
   canvas.style.height = h + 'px';
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  // 아이 선은 가이드 띠와 거의 같은 굵기여야 '칸을 채웠다'는 만족이 난다.
+  // 띠 굵기는 SVG 단위이므로 화면에 그려진 배율을 곱해 픽셀로 옮긴다.
+  const data = currentGlyph();
+  if (data) {
+    const vb = (document.getElementById('guideSvg').getAttribute('viewBox') || '0 0 200 200')
+      .split(/\s+/).map(Number);
+    const scale = Math.min(w / (vb[2] || 200), h / (vb[3] || 200));
+    STATE.penWidth = Math.max(8, strokeW(data) * scale * 0.9);
+  }
   redrawUserStrokes();
 }
 
@@ -895,13 +1029,13 @@ function redrawUserStrokes() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 18;
+  ctx.lineWidth = STATE.penWidth;
   STATE.strokes.forEach(s => {
     ctx.strokeStyle = s.color;
     ctx.beginPath();
     if (s.points.length === 1) {
       const p = s.points[0];
-      ctx.arc(p.x, p.y, 9, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, STATE.penWidth / 2, 0, Math.PI * 2);
       ctx.fillStyle = s.color;
       ctx.fill();
       return;
@@ -930,7 +1064,7 @@ function showEncourage(msg) {
   if (existing) existing.remove();
   const b = document.createElement('div');
   b.className = 'encourage-badge';
-  b.textContent = '👍 ' + msg;
+  b.textContent = msg;
   document.getElementById('canvasWrapper').appendChild(b);
   later(() => b.remove(), 1600);
 }
@@ -943,13 +1077,13 @@ function checkTrace() {
     showEncourage('조금 더 그려볼까요?');
     return;
   }
-  sfxSuccess();
   if (partCount() > 1) {      // 단어는 글자마다 축하하지 않고 바로 넘어간다
+    sfxSuccess();
     STATE.step = 2;
     renderPractice();
     return;
   }
-  showCelebration(2, false);  // 따라쓰기 완료 = 2별
+  showStamp(2, false);        // 따라쓰기 완료 = 2별
 }
 function finishPractice() {
   const totalPoints = STATE.strokes.reduce((sum, s) => sum + s.points.length, 0);
@@ -966,52 +1100,46 @@ function finishPractice() {
     renderPractice();
     return;
   }
-  sfxCelebrate();
-  showCelebration(3, true);   // 혼자쓰기 완료 = 3별
+  showStamp(3, true);         // 혼자쓰기 완료 = 3별
 }
 
-function showCelebration(stars, isFinal) {
+// 완료 표현은 화면을 덮는 모달이 아니라 종이에 찍는 도장이다.
+// 아이가 방금 쓴 글자가 그대로 보이고, 버튼을 고를 필요도 없다.
+// 도장은 캔버스 오른쪽 아래 여백에 찍혀 글자를 덮지 않는다.
+function showStamp(stars, isFinal) {
   const data = currentItem();
   saveProgress(STATE.currentId, stars);
 
-  const c = document.getElementById('celebration');
-  c.classList.add('active');
-  document.getElementById('celebTitle').textContent = isFinal ? '참 잘했어요!' : '따라쓰기 성공!';
-  document.getElementById('celebSub').textContent = isFinal
-    // 이름으로 읽어야 조사가 자연스럽다 — 'ㄱ를'이 아니라 '기역을'
-    ? `${isNumberItem(data) ? '숫자 ' : ''}${withParticle(data.ko, '을', '를')} 완성했어요!`
-    : `이번엔 혼자 써볼까요?`;
-  document.getElementById('celebEmoji').textContent = isFinal ? '🎉' : '🌟';
+  const el = document.getElementById('stamp');
+  el.innerHTML =
+    '<svg class="stamp-ring" width="200" height="200" viewBox="0 0 100 100" aria-hidden="true">' +
+      '<circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="4"/>' +
+      '<circle cx="50" cy="50" r="39" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.55"/>' +
+    '</svg>' +
+    `<div class="stamp-label">${isFinal ? '참<br>잘했어요' : '잘<br>따라 썼어요'}</div>` +
+    `<div class="stamp-stars">${[0,1,2].map(i => starIcon(20, i < stars)).join('')}</div>`;
+  el.classList.add('active');
 
-  // 별 애니메이션
-  const starsEl = document.getElementById('celebStars');
-  const starSpans = starsEl.querySelectorAll('.star');
-  starSpans.forEach((s, i) => {
-    s.classList.remove('show');
-    if (i < stars) {
-      later(() => s.classList.add('show'), 200 + i * 250);
-    }
-  });
+  sfxSuccess();
+  later(() => speak(isFinal ? '참 잘했어요' : '잘 따라 썼어요'), 300);
 
-  // 다음 버튼 조정
-  const nextBtn = document.getElementById('nextBtn');
   if (isFinal) {
-    nextBtn.textContent = nextItemId() ? '다음 →' : '처음으로 →';
-    nextBtn.onclick = () => { closeCelebration(); nextNumber(); };
+    sfxCelebrate();
+    launchConfetti();
+    // 공책의 다음 장을 넘기듯 다음 항목으로 넘어간다
+    later(() => nextNumber(), 2400);
   } else {
-    nextBtn.textContent = '혼자 써볼래요! →';
-    nextBtn.onclick = () => { closeCelebration(); STATE.step = 2; renderPractice(); };
+    later(() => { STATE.step = 2; renderPractice(); }, 1500);
   }
-
-  later(() => speak(isFinal ? '참 잘했어요' : '따라쓰기 성공'), 300);
-
-  // 컨페티
-  launchConfetti();
 }
-function closeCelebration() {
-  sfxTap();
-  document.getElementById('celebration').classList.remove('active');
+
+function hideStamp() {
+  const el = document.getElementById('stamp');
+  if (!el) return;
+  el.classList.remove('active');
+  el.innerHTML = '';
 }
+
 // 같은 탭의 다음 항목. 마지막이면 null.
 function nextItemId() {
   const data = currentItem();
@@ -1050,7 +1178,14 @@ function launchConfetti() {
 
 // ---------- 초기화 ----------
 window.addEventListener('load', () => {
+  // 아이콘 채우기 — 조작 버튼은 이모지가 아니라 SVG 다
+  document.querySelector('.btn-back').innerHTML = icon('back', 40);
+  const sound = document.getElementById('soundBtn');
+  sound.innerHTML = icon('sound', 52) + '<span>소리 듣기</span>';
+  sound.addEventListener('click', () => speakNumber('ko'));
+
   renderHome();
+  initGridSwipe();
 
   const canvas = document.getElementById('drawCanvas');
   canvas.addEventListener('pointerdown', startDraw);
@@ -1088,5 +1223,4 @@ window.speak = speak;
 window.clearAll = clearAll;
 window.checkTrace = checkTrace;
 window.finishPractice = finishPractice;
-window.closeCelebration = closeCelebration;
 window.nextNumber = nextNumber;

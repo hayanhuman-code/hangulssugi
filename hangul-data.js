@@ -227,10 +227,10 @@
 
   // ---------- 카테고리 ----------
   const CATEGORY = {
-    consonant: { label: '자음', icon: 'ㄱㄴ', color: '#C9512A', bgColor: '#FFE3D6' },
+    consonant: { label: '자음', icon: 'ㄱㄴ', color: '#B8481F', bgColor: '#FFE3D6' },
     vowel:     { label: '모음', icon: 'ㅏㅗ', color: '#0E7D66', bgColor: '#D2F3E8' },
     syllable:  { label: '글자', icon: '가',   color: '#7B4FC0', bgColor: '#EADFFB' },
-    word:      { label: '단어', icon: '🦋',  color: '#A9640A', bgColor: '#FFEBCF' }
+    word:      { label: '단어', icon: '나비', color: '#A9640A', bgColor: '#FFEBCF' }
   };
 
   // ---------- 배울 것 ----------
