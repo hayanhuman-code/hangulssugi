@@ -227,10 +227,12 @@
 
   // ---------- 카테고리 ----------
   const CATEGORY = {
-    consonant: { label: '자음', icon: 'ㄱㄴ', color: '#C9512A', bgColor: '#FFE3D6' },
+    consonant: { label: '자음', icon: 'ㄱㄴ', color: '#B8481F', bgColor: '#FFE3D6' },
     vowel:     { label: '모음', icon: 'ㅏㅗ', color: '#0E7D66', bgColor: '#D2F3E8' },
     syllable:  { label: '글자', icon: '가',   color: '#7B4FC0', bgColor: '#EADFFB' },
-    word:      { label: '단어', icon: '🦋',  color: '#A9640A', bgColor: '#FFEBCF' }
+    // 단어의 딥색은 획에 쓰면 알맞지만(크림 캔버스 대비 4.58:1) 탭 전체를 칠하면
+    // 다섯 탭 중 혼자만 어둡고 탁하게 가라앉는다. 탭 면만 한 단계 밝게 쓴다.
+    word:      { label: '단어', icon: '나비', color: '#A9640A', tabColor: '#B87007', bgColor: '#FFEBCF' }
   };
 
   // ---------- 배울 것 ----------
