@@ -13,6 +13,14 @@
     el.tabs = document.getElementById('tabs');
     el.grid = document.getElementById('grid');
     el.settings = document.getElementById('btn-settings');
+    el.grid.addEventListener('scroll', function () {
+      var atEnd = el.grid.scrollTop + el.grid.clientHeight >= el.grid.scrollHeight - 4;
+      document.getElementById('screen-home').classList.toggle('scrollable', !atEnd);
+    });
+    global.addEventListener('resize', markScrollable);
+    global.addEventListener('orientationchange', function () {
+      global.setTimeout(markScrollable, 120);
+    });
     if (el.settings) {
       el.settings.innerHTML = global.Icons.gear(30);
       el.settings.addEventListener('click', openSettings);
@@ -108,6 +116,13 @@
     document.addEventListener('keydown', onEsc);
   }
 
+  /* 목록이 넘치면 아래에 페이드를 깔아 "더 있다"를 알린다 */
+  function markScrollable() {
+    var screen = document.getElementById('screen-home');
+    var more = el.grid.scrollHeight - el.grid.clientHeight > 4;
+    screen.classList.toggle('scrollable', more);
+  }
+
   function renderTabs() {
     el.tabs.innerHTML = '';
     global.Curriculum.tabs.forEach(function (tab) {
@@ -134,6 +149,7 @@
     global.App.applyCategory(tab);
 
     el.grid.className = 'grid ' + tab.layout;
+    el.grid.scrollTop = 0;
     el.grid.innerHTML = '';
 
     tab.items.forEach(function (item, i) {
@@ -183,6 +199,8 @@
 
       el.grid.appendChild(card);
     });
+
+    markScrollable();
   }
 
   function focusTab(key) {

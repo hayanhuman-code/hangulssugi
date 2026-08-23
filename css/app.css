@@ -176,7 +176,27 @@ body { display: flex; align-items: center; justify-content: center; }
 }
 .tab.on .tab-icon { background: rgba(255, 255, 255, .9); }
 
-.grid { display: grid; gap: 20px; align-content: start; }
+/* 항목이 판보다 많아지면(단어 38개 + 부모가 넣은 말) 아래쪽 카드에 손이
+   닿지 않는다. #stage 는 overflow:hidden 이라 스크롤도 안 됐다. 목록만 스크롤. */
+.grid {
+  display: grid; gap: 20px; align-content: start;
+  flex: 1; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 4px 4px 12px;
+  scrollbar-width: none;
+}
+.grid::-webkit-scrollbar { width: 0; height: 0; }
+
+/* 아래에 더 있다는 신호 — 그리드가 넘칠 때만 깔린다.
+   (.screen 은 이미 absolute 라 그 자체가 기준이다. relative 를 덧붙이면
+    absolute 가 풀려 화면 높이가 콘텐츠만큼 늘어나고 스크롤이 사라진다) */
+.screen#screen-home::after {
+  content: ''; position: absolute; left: 36px; right: 36px; bottom: 0; height: 56px;
+  background: linear-gradient(to top, var(--app), rgba(255, 255, 255, 0));
+  pointer-events: none; opacity: 0; transition: opacity .2s ease;
+}
+.screen#screen-home.scrollable::after { opacity: 1; }
 .grid.small { grid-template-columns: repeat(7, 1fr); }
 .grid.wide { grid-template-columns: repeat(5, 1fr); }
 .grid.word { grid-template-columns: repeat(4, 1fr); }

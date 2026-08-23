@@ -105,7 +105,19 @@ docs/glyph-sheet.html  전체 글자의 획·획순 점검표
 
 모바일에서 획이 끊기지 않도록 `touch-action` 을 명시한다 — 문서 전체는
 `manipulation`(더블탭 확대 차단), 그리기 영역과 캔버스는 `none`(모든 제스처
-차단). 당겨서 새로고침은 `overscroll-behavior: none` 으로 막는다.
+차단), 항목 목록은 `pan-y`(위아래로만). 당겨서 새로고침은
+`overscroll-behavior: none` 으로 막는다.
+
+`#stage` 는 `overflow: hidden` 이라 판 밖으로 나간 것은 볼 방법이 없다.
+항목 수가 판보다 많아질 수 있는 곳은 **목록(`.grid`)뿐**이므로 거기만
+스크롤시킨다(`flex: 1; min-height: 0; overflow-y: auto`). 단어 38개에
+부모가 넣은 말까지 붙으면 아이폰 세로에서 1600px 가까이 넘치는데,
+스크롤이 없으면 아래쪽 카드를 아예 고를 수 없었다. 넘칠 때는 아래에
+페이드를 깔아 더 있다는 것을 알린다.
+
+`.screen` 은 이미 `position: absolute` 라 그 자체가 배치 기준이다.
+페이드를 붙이려고 `position: relative` 를 덧대면 absolute 가 풀려
+화면 높이가 콘텐츠만큼 늘어나고 스크롤이 사라진다.
 
 ## 가로모음을 담는 법
 
