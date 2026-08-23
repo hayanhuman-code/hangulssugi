@@ -139,6 +139,46 @@
   }
   .number-card.bounce { animation: card-bounce 420ms ease-out; }
 
+  /* ---------- 단어 넣기 (부모용) ---------- */
+  .number-card.add-word { background: #F7F4FF; border: 3px dashed #cfc6e8; box-shadow: none; }
+  .number-card .add-word-label { font-size: 15px; color: #8a8aa8; }
+  .word-sheet {
+    position: fixed; inset: 0; z-index: 60; display: none;
+    align-items: center; justify-content: center; background: rgba(60,48,80,0.4);
+  }
+  .word-sheet.active { display: flex; }
+  .sheet-card {
+    width: min(560px, 92vw); max-height: 88vh; overflow: auto;
+    background: white; border-radius: 28px; padding: 24px;
+    box-shadow: 0 10px 0 rgba(0,0,0,0.10), 0 30px 60px rgba(0,0,0,0.22);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .sheet-card h2 { margin: 0; font-size: 26px; }
+  .sheet-hint { margin: 0; font-size: 14px; font-weight: 500; color: #8a8aa8; line-height: 1.6; }
+  .sheet-row { display: flex; gap: 10px; }
+  .sheet-row input {
+    flex: 1; height: 52px; border-radius: 16px; border: 3px solid #e5e0f0;
+    padding: 0 16px; font-family: inherit; font-size: 22px; color: inherit;
+  }
+  .sheet-row input:focus-visible { outline: 4px solid #A9C7FF; outline-offset: 2px; }
+  .sheet-emojis { display: flex; flex-wrap: wrap; gap: 8px; }
+  .sheet-emoji {
+    width: 46px; height: 46px; border-radius: 14px; font-size: 22px; cursor: pointer;
+    border: 3px solid transparent; background: #f4f2fa;
+  }
+  .sheet-emoji.on { border-color: #9775FA; background: #ece5ff; }
+  .sheet-msg { min-height: 20px; font-size: 14px; font-weight: 500; color: #d2544f; }
+  .sheet-list { display: flex; flex-direction: column; gap: 6px; }
+  .sheet-item {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #f7f6fb; border-radius: 14px; padding: 8px 14px; font-size: 20px;
+  }
+  .sheet-del {
+    border: none; background: transparent; cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 700; color: #8a8aa8;
+  }
+  .sheet-empty { font-size: 14px; font-weight: 500; color: #b8b8d0; padding: 4px 2px; }
+
   /* ---------- 연습 화면 ---------- */
   .practice {
     height: 100%; display: none; flex-direction: column;
@@ -494,6 +534,9 @@
     <div class="number-grid" id="numberGrid" role="list" aria-label="연습할 숫자 고르기"></div>
   </div>
 
+  <!-- 단어 넣기 (부모용) -->
+  <div class="word-sheet" id="wordSheet"></div>
+
   <!-- 연습 화면 -->
   <div class="practice" id="practice">
     <div class="practice-header">
@@ -552,6 +595,7 @@
 
 <script src="number-data.js"></script>
 <script src="hangul-data.js"></script>
+<script src="custom-words.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

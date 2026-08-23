@@ -359,6 +359,7 @@ Bundled in this handoff:
 - `app.js` — all state, screen rendering, drawing canvas, SVG guide generation, stroke-order animation, sound synthesis, progress persistence.
 - `number-data.js` — the 21 number definitions (stroke paths, colors, Korean/English names, count emojis).
 - `hangul-data.js` — the stroke data for 19 consonants and 21 vowels, the composition rules that build any syllable from them, and the 91 curriculum items across four categories.
+- `custom-words.js` — words a parent types in (the child's name, family names), validated and stored in `localStorage.customWords`, appended to the word tab.
 - `docs/glyph-sheet.html` — every Hangul item drawn in stroke order on one page. Open it in a browser after touching the letter shapes or the composition boxes.
 
 ## Running It
@@ -475,6 +476,12 @@ git-ignored; regenerate it rather than committing it.
 - **Sequential unlocking** across every tab, including numbers — see *State Management*.
 - **Korean particles** are chosen by whether the preceding syllable has a final consonant, so the subtitle reads 자음**을** / 숫자**를** rather than a fixed 를.
 - **Fixed: progress was silently lost on reload.** `loadProgress()` sat above its own `const PROGRESS_KEY` and read it during `STATE` initialisation — a temporal-dead-zone `ReferenceError` that the surrounding `try/catch` (there for private-mode localStorage) swallowed, so every session started empty. The constant now precedes the state.
+
+### Stage E: parent-entered words
+- **A parent can add words the curriculum does not carry** — the child's name above all. The composition engine already builds any Hangul syllable, so an entered word gets stroke order, guides and animation with nothing extra. Entries live in `localStorage.customWords` and never leave the device.
+- Accepts composed Hangul only (`가-힣`), up to 4 syllables and 20 entries, rejecting duplicates and anything already in the curriculum. Each rejection says why, in the parent's words rather than a generic error.
+- Entered words are never locked — a word a parent just added has to be usable right away.
+- The sheet is deliberately parent-facing: smaller type, plain wording, a delete button per entry.
 
 ### Known gaps
 - Screen-reader coverage is partial: home cards and the main controls have labels, but the

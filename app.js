@@ -94,6 +94,8 @@ function isNumberItem(item) { return !!item && item.category === 'number'; }
 const HEAD_START = 3;
 function isUnlocked(list, index) {
   if (index < HEAD_START) return true;
+  // 부모가 방금 넣은 단어까지 잠가 두면 넣은 보람이 없다
+  if (list[index] && list[index].custom) return true;
   const prev = list[index - 1];
   return !prev || (STATE.progress[prev.id] || 0) > 0;
 }
@@ -326,6 +328,89 @@ function renderGrid() {
     });
     grid.appendChild(card);
   });
+
+  // 아이 이름처럼 교재에 없는 말은 부모가 직접 넣는다
+  if (isWord && window.CustomWords) grid.appendChild(addWordCard());
+}
+
+function addWordCard() {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'number-card add-word';
+  card.setAttribute('role', 'listitem');
+  card.setAttribute('aria-label', '단어 직접 넣기. 부모가 쓰는 기능이에요');
+  card.innerHTML = '<div class="word-emoji" aria-hidden="true">➕</div><div class="add-word-label">단어 넣기</div>';
+  card.addEventListener('click', () => { sfxTap(); openWordSheet(); });
+  return card;
+}
+
+// ---------- 단어 넣기 (부모용) ----------
+function openWordSheet() {
+  const sheet = document.getElementById('wordSheet');
+  let picked = window.CustomWords.emoji[0];
+
+  function draw() {
+    const saved = window.CustomWords.all();
+    sheet.innerHTML = `
+      <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <h2 id="sheetTitle">단어 넣기</h2>
+        <p class="sheet-hint">아이 이름, 가족 이름처럼 쓰고 싶은 말을 넣어 주세요.
+          한글 ${window.CustomWords.maxLen}글자까지 넣을 수 있어요. 이 기기에만 저장돼요.</p>
+        <div class="sheet-row">
+          <input id="sheetInput" type="text" maxlength="${window.CustomWords.maxLen}"
+                 placeholder="예: 지우" aria-label="넣을 단어" autocomplete="off">
+          <button type="button" class="btn btn-primary" id="sheetAdd">넣기</button>
+        </div>
+        <div class="sheet-emojis" role="group" aria-label="그림 고르기">
+          ${window.CustomWords.emoji.map(e =>
+            `<button type="button" class="sheet-emoji${e === picked ? ' on' : ''}" data-emoji="${e}" aria-label="그림 ${e}">${e}</button>`
+          ).join('')}
+        </div>
+        <div class="sheet-msg" id="sheetMsg" role="status"></div>
+        <div class="sheet-list">
+          ${saved.length
+            ? saved.map(c => `<div class="sheet-item"><span>${c.emoji} ${c.word}</span>
+                <button type="button" class="sheet-del" data-del="${c.word}" aria-label="${c.word} 지우기">지우기</button></div>`).join('')
+            : '<div class="sheet-empty">아직 넣은 단어가 없어요.</div>'}
+        </div>
+        <button type="button" class="btn" id="sheetClose">닫기</button>
+      </div>`;
+
+    const input = document.getElementById('sheetInput');
+    const msg = document.getElementById('sheetMsg');
+
+    sheet.querySelectorAll('.sheet-emoji').forEach(b => {
+      b.addEventListener('click', () => { picked = b.getAttribute('data-emoji'); draw(); });
+    });
+    sheet.querySelectorAll('.sheet-del').forEach(b => {
+      b.addEventListener('click', () => {
+        window.CustomWords.remove(b.getAttribute('data-del'));
+        draw();
+        renderGrid();
+      });
+    });
+    document.getElementById('sheetClose').addEventListener('click', closeWordSheet);
+    document.getElementById('sheetAdd').addEventListener('click', () => {
+      const res = window.CustomWords.add(input.value, picked);
+      if (!res.ok) { msg.textContent = res.reason; input.focus(); return; }
+      sfxSuccess();
+      draw();
+      renderGrid();
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('sheetAdd').click();
+    });
+    input.focus();
+  }
+
+  draw();
+  sheet.classList.add('active');
+}
+
+function closeWordSheet() {
+  const sheet = document.getElementById('wordSheet');
+  sheet.classList.remove('active');
+  sheet.innerHTML = '';
 }
 
 function cardLabel(data, stars, open) {
