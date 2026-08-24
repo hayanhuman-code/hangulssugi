@@ -55,9 +55,67 @@
     return out.join(' ');
   }
 
-  // 획 묶음을 상자 (x0,y0)-(x1,y1) 안에 담는다.
-  function box(paths, x0, y0, x1, y1) {
-    return paths.map(d => transform(d, (x1 - x0) / BOX, (y1 - y0) / BOX, x0, y0));
+  // 획 묶음이 실제로 차지하는 범위. 우리 호(A)는 모두 반원이라 현(弦) 가운데에서
+  // 반지름만큼 부푼다.
+  function inkBox(paths) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    function see(x, y) {
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    paths.forEach(d => {
+      let cx = 0, cy = 0, m;
+      CMD.lastIndex = 0;
+      while ((m = CMD.exec(d))) {
+        const cmd = m[1];
+        const n = (m[2].match(NUM) || []).map(Number);
+        if (cmd === 'H') { n.forEach(x => { cx = x; see(cx, cy); }); continue; }
+        if (cmd === 'V') { n.forEach(y => { cy = y; see(cx, cy); }); continue; }
+        if (cmd === 'A') {
+          for (let i = 0; i + 6 < n.length; i += 7) {
+            const mx = (cx + n[i + 5]) / 2, my = (cy + n[i + 6]) / 2;
+            see(mx - n[i], my - n[i + 1]); see(mx + n[i], my + n[i + 1]);
+            cx = n[i + 5]; cy = n[i + 6];
+          }
+          continue;
+        }
+        for (let i = 0; i + 1 < n.length; i += 2) { cx = n[i]; cy = n[i + 1]; see(cx, cy); }
+      }
+    });
+    return [x0, y0, x1, y1];
+  }
+
+  /*
+   * 획 묶음의 '잉크'를 상자 (x0,y0)-(x1,y1) 에 맞춘다.
+   *
+   * 예전에는 1000 상자를 통째로 옮겨 자리를 나눴는데, 자모마다 그 상자를 채우는
+   * 정도가 달라 어긋났다. ㅗ 는 y 180~530 에만 그려져 있어 자리의 절반을 빈 채로
+   * 먹었고, 그래서 '과' 의 왼쪽 칸은 아래 3분의 1이 통째로 비고 ㄱ 은 천장에
+   * 붙어 떠 보였다. ㄱ 도 1000 중 540 만 차지해 어떤 자리에 넣든 폭의 절반밖에
+   * 쓰지 못했다. 자리는 잉크 기준으로 나눠야 자리 값이 곧 보이는 값이 된다.
+   *
+   * 자리마다 자모가 눌리는 정도는 원래 다르다 — '고' 의 ㄱ 은 폰트에서도 옆으로
+   * 길다. 다만 두 배 넘게 눌리면 ㅅ·ㅈ 의 삐침이 45도보다 누워서, 위에서 아래로
+   * 긋던 획이 왼쪽으로 긋는 획처럼 보인다. 그래서 눌림을 두 배로 묶고 남는
+   * 자리는 상자 가운데를 잡아 비운다.
+   *
+   * 획이 하나뿐이라 두께가 0 인 축(ㅡ 의 세로, ㅣ 의 가로)은 늘릴 수 없으니
+   * 이 역시 상자 한가운데에 둔다.
+   */
+  const MAX_SQUASH = 2;
+
+  function fit(paths, x0, y0, x1, y1) {
+    const b = inkBox(paths);
+    const w = b[2] - b[0], h = b[3] - b[1];
+    let sx = w > 0 ? (x1 - x0) / w : 1;
+    let sy = h > 0 ? (y1 - y0) / h : 1;
+    if (w > 0 && h > 0) {
+      if (sx > sy * MAX_SQUASH) sx = sy * MAX_SQUASH;
+      else if (sy > sx * MAX_SQUASH) sy = sx * MAX_SQUASH;
+    }
+    const tx = (x0 + x1) / 2 - (w > 0 ? (b[0] + b[2]) / 2 * sx : b[0]);
+    const ty = (y0 + y1) / 2 - (h > 0 ? (b[1] + b[3]) / 2 * sy : b[1]);
+    return paths.map(d => transform(d, sx, sy, tx, ty));
   }
 
   function startOf(d) {
@@ -85,7 +143,7 @@
 
   // 쌍자음 · 겹받침 — 같은 자리에 둘을 좌우로 눌러 담는다
   function pair(a, b) {
-    return box(a, 0, 60, 470, 940).concat(box(b, 530, 60, 1000, 940));
+    return fit(a, 110, 280, 350, 765).concat(fit(b, 650, 280, 890, 765));
   }
   const DOUBLES = {
     'ㄲ': ['ㄱ', 'ㄱ'], 'ㄸ': ['ㄷ', 'ㄷ'], 'ㅃ': ['ㅂ', 'ㅂ'], 'ㅆ': ['ㅅ', 'ㅅ'], 'ㅉ': ['ㅈ', 'ㅈ'],
@@ -123,7 +181,7 @@
     'ㅢ': ['ㅡ', 'ㅣ']
   };
   Object.keys(PARTS).forEach(k => {
-    VOW[k] = box(VOW[PARTS[k][0]], 40, 400, 560, 920).concat(box(VOW[PARTS[k][1]], 540, 60, 980, 940));
+    VOW[k] = fit(VOW[PARTS[k][0]], 60, 480, 560, 800).concat(fit(VOW[PARTS[k][1]], 640, 150, 900, 850));
   });
 
   // ---------- 음절 조립 ----------
@@ -143,11 +201,18 @@
     };
   }
 
-  // 자리 배치는 한글 조합 규칙 그대로.
-  //   세로모음(가) 초성 왼쪽, 모음 세로획이 글자 전체 높이
-  //   가로모음(고) 초성 위,   모음이 아래 전체 폭
-  //   겹모음(과)   초성 왼쪽 위, 가로모음 왼쪽 아래, 세로모음 오른쪽 전체 높이
-  // 받침이 붙으면 위쪽을 눌러 올리고 아래에 종성 자리를 만든다.
+  /*
+   * 자리 배치는 한글 조합 규칙 그대로.
+   *   세로모음(가) 초성 왼쪽, 모음 세로획이 글자 전체 높이
+   *   가로모음(고) 초성 위,   모음이 아래 전체 폭
+   *   겹모음(과)   초성 왼쪽 위, 가로모음 왼쪽 아래, 세로모음 오른쪽 전체 높이
+   * 받침이 붙으면 위쪽을 눌러 올리고 아래에 종성 자리를 만든다.
+   *
+   * 아래 상자는 모두 '잉크가 놓일 자리'다(fit). 비율은 Gothic A1 의 같은 글자를
+   * 재서 맞췄다 — 이를테면 '고' 의 ㄱ 은 폰트에서 글자 폭의 80% 를 쓰는데
+   * 예전 배치는 28% 만 썼다. 다만 획이 굵어 겹치면 알아볼 수 없으므로 폰트처럼
+   * ㄱ 의 내리획을 ㅗ 옆까지 늘리지는 않고, 위아래로 나란히 쌓는다.
+   */
   function syllable(ch) {
     const p = decompose(ch);
     if (!p) return null;
@@ -160,9 +225,9 @@
       const h = VOW[parts[0]], v = VOW[parts[1]];
       if (!h || !v) return null;
       return f
-        ? box(c, 80, 50, 445, 375).concat(box(h, 50, 350, 525, 625),
-            box(v, 540, 40, 940, 625), box(f, 195, 630, 805, 955))
-        : box(c, 80, 70, 470, 470).concat(box(h, 50, 440, 545, 905), box(v, 555, 50, 950, 950));
+        ? fit(c, 160, 120, 470, 290).concat(fit(h, 130, 420, 470, 560),
+            fit(v, 650, 100, 880, 560), fit(f, 290, 690, 710, 890))
+        : fit(c, 160, 160, 480, 400).concat(fit(h, 130, 570, 480, 800), fit(v, 650, 150, 880, 850));
     }
 
     const vow = VOW[p.jung];
@@ -170,19 +235,19 @@
 
     if (WIDE.indexOf(p.jung) >= 0) {
       return f
-        ? box(c, 290, 50, 710, 370).concat(box(vow, 60, 350, 940, 630), box(f, 265, 620, 735, 955))
-        : box(c, 240, 60, 760, 480).concat(box(vow, 60, 440, 940, 930));
+        ? fit(c, 220, 100, 780, 280).concat(fit(vow, 120, 410, 880, 545), fit(f, 300, 675, 700, 890))
+        : fit(c, 150, 165, 860, 465).concat(fit(vow, 120, 615, 880, 815));
     }
 
     const roomy = TALL_WIDE.indexOf(p.jung) >= 0;
     if (f) {
       return roomy
-        ? box(c, 60, 60, 430, 530).concat(box(vow, 410, 30, 950, 565), box(f, 195, 570, 805, 955))
-        : box(c, 70, 60, 480, 530).concat(box(vow, 460, 30, 930, 565), box(f, 195, 570, 805, 955));
+        ? fit(c, 120, 130, 390, 430).concat(fit(vow, 560, 110, 880, 450), fit(f, 290, 620, 710, 890))
+        : fit(c, 130, 130, 480, 430).concat(fit(vow, 650, 110, 880, 450), fit(f, 290, 620, 710, 890));
     }
     return roomy
-      ? box(c, 60, 90, 470, 850).concat(box(vow, 450, 50, 960, 950))
-      : box(c, 70, 90, 540, 850).concat(box(vow, 510, 50, 950, 950));
+      ? fit(c, 120, 220, 390, 700).concat(fit(vow, 560, 150, 880, 850))
+      : fit(c, 130, 220, 480, 700).concat(fit(vow, 650, 150, 880, 850));
   }
 
   // 자음 · 모음 낱자, 또는 음절 하나
