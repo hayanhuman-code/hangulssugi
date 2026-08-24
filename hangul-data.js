@@ -104,6 +104,53 @@
    */
   const MAX_SQUASH = 2;
 
+  /*
+   * 세로에 가까운 획의 기울기는 자리 비율을 따라가면 안 된다.
+   *
+   * ㄱ 의 내리획은 세로에서 12.3도 기운 획이다. 그런데 자리가 납작하면
+   * 가로로만 늘어나 '고'·'구' 에서 23.6도까지 누웠다 — 낱자로 쓴 ㄱ 과
+   * 각도가 두 배 차이가 나니 같은 글자로 보이지 않고, 한글을 처음 쓰는
+   * 사람이 그린 것처럼 어색해진다.
+   *
+   * 가로 이동량을 미리 sy/sx 로 나눠 두면 뒤이어 sx 가 곱해져 결국 sy 로
+   * 스케일된다. 세로와 같은 배율이니 각도가 낱자 그대로 남는다.
+   *
+   * ㅅ·ㅈ 의 삐침(세로에서 24도 넘게 벌어진 획)은 자리 폭을 따라 벌어지는
+   * 게 맞으므로 건드리지 않는다. 세로에 가까운 획만 골라낸다.
+   */
+  const TILT_LIMIT = 0.33;   // 세로 대비 가로 이동 비율 — 약 18도
+
+  function unskew(d, k) {
+    const out = [];
+    let cx = 0, cy = 0, m;
+    CMD.lastIndex = 0;
+    while ((m = CMD.exec(d))) {
+      const cmd = m[1];
+      const n = (m[2].match(NUM) || []).map(Number);
+      if (cmd === 'L') {
+        const pts = [];
+        for (let i = 0; i + 1 < n.length; i += 2) {
+          let x = n[i];
+          const y = n[i + 1], dx = x - cx, dy = y - cy;
+          if (dx !== 0 && Math.abs(dx) < Math.abs(dy) * TILT_LIMIT) x = cx + dx * k;
+          pts.push(round(x) + ',' + round(y));
+          cx = x; cy = y;
+        }
+        out.push('L' + pts.join(' '));
+        continue;
+      }
+      out.push(m[0].trim());
+      if (cmd === 'M') {
+        for (let i = 0; i + 1 < n.length; i += 2) { cx = n[i]; cy = n[i + 1]; }
+      } else if (cmd === 'H') { if (n.length) cx = n[n.length - 1]; }
+      else if (cmd === 'V') { if (n.length) cy = n[n.length - 1]; }
+      else if (cmd === 'A') {
+        for (let i = 0; i + 6 < n.length; i += 7) { cx = n[i + 5]; cy = n[i + 6]; }
+      }
+    }
+    return out.join(' ');
+  }
+
   function fit(paths, x0, y0, x1, y1) {
     const b = inkBox(paths);
     const w = b[2] - b[0], h = b[3] - b[1];
@@ -115,7 +162,8 @@
     }
     const tx = (x0 + x1) / 2 - (w > 0 ? (b[0] + b[2]) / 2 * sx : b[0]);
     const ty = (y0 + y1) / 2 - (h > 0 ? (b[1] + b[3]) / 2 * sy : b[1]);
-    return paths.map(d => transform(d, sx, sy, tx, ty));
+    const k = (sx === sy || PRESHAPED.has(paths)) ? 1 : sy / sx;
+    return paths.map(d => transform(k === 1 ? d : unskew(d, k), sx, sy, tx, ty));
   }
 
   function startOf(d) {
@@ -141,9 +189,21 @@
     'ㅎ': ['M500,110 V220', 'M250,330 H750', 'M500,410 A190,190 0 1 0 500,790 A190,190 0 1 0 500,410']
   };
 
-  // 쌍자음 · 겹받침 — 같은 자리에 둘을 좌우로 눌러 담는다
+  /*
+   * 쌍자음 · 겹받침 — 같은 자리에 둘을 좌우로 눌러 담는다. 폰트에서도
+   * ㄲ 의 두 짝은 좁고 길게 눌러 쓴다.
+   *
+   * 다만 이렇게 만든 묶음은 음절을 조립할 때 fit 이 한 번 더 걸린다. 그때
+   * 보이는 건 이미 눌린 모양이라 ㅅ 의 삐침이 세로에 가까워 보이고, ㄱ 의
+   * 내리획으로 착각해 기울기를 붙들면 '쌍' 의 ㅆ 두 짝이 붙는다. 그래서
+   * 여기서 만든 묶음은 표시해 두고 두 번째 fit 에서는 보정을 건너뛴다.
+   */
+  const PRESHAPED = new Set();
+
   function pair(a, b) {
-    return fit(a, 110, 280, 350, 765).concat(fit(b, 650, 280, 890, 765));
+    const made = fit(a, 110, 280, 350, 765).concat(fit(b, 650, 280, 890, 765));
+    PRESHAPED.add(made);
+    return made;
   }
   const DOUBLES = {
     'ㄲ': ['ㄱ', 'ㄱ'], 'ㄸ': ['ㄷ', 'ㄷ'], 'ㅃ': ['ㅂ', 'ㅂ'], 'ㅆ': ['ㅅ', 'ㅅ'], 'ㅉ': ['ㅈ', 'ㅈ'],
@@ -224,10 +284,20 @@
     if (parts) {
       const h = VOW[parts[0]], v = VOW[parts[1]];
       if (!h || !v) return null;
+      /*
+       * 겹모음은 왼쪽 칸을 위아래로 나눠 쓰느라 초성이 가장 눌린다. ㄱ 의
+       * 내리획이 굵기의 두 배밖에 안 되면 획이 아니라 뭉툭한 혹처럼 보여
+       * 초성에 높이를 더 줬다(240 → 300, 글자 높이의 43% 로 폰트와 같은 비율).
+       *
+       * 폰트는 내리획을 가로모음의 세로획 옆까지 더 길게 내리지만 우리는
+       * 그러지 않는다. ㅇ·ㅁ 처럼 아래가 넓은 자음까지 같이 내려가 '와·왜·
+       * 워·위' 에서 가로모음과 붙어 버린다. 위아래로 쌓고 사이를 획 굵기
+       * (1000 기준 120)보다 넓게 벌린다.
+       */
       return f
         ? fit(c, 160, 120, 470, 290).concat(fit(h, 130, 420, 470, 560),
             fit(v, 650, 100, 880, 560), fit(f, 290, 690, 710, 890))
-        : fit(c, 160, 160, 480, 400).concat(fit(h, 130, 570, 480, 800), fit(v, 650, 150, 880, 850));
+        : fit(c, 190, 150, 500, 450).concat(fit(h, 100, 600, 450, 800), fit(v, 660, 150, 880, 850));
     }
 
     const vow = VOW[p.jung];
