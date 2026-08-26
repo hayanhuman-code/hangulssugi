@@ -363,6 +363,12 @@
   /* 따라쓰기는 한 획씩 차례로 받는다 — 다 쓴 획은 옅게 남겨 지금까지 만든
      모양을 보여 주고, 아직 차례가 아닌 획은 글자 윤곽만 짐작될 만큼 흐리게 둔다. */
   .stroke-done { opacity: 0.4; stroke-linecap: round; stroke-linejoin: round; }
+  /* 혼자쓰기에서 순서가 어긋난 순간 잠깐 비추는 획 */
+  .hint-flash { animation: hint-in 1.7s ease-in-out both; }
+  @keyframes hint-in {
+    0% { opacity: 0; } 12% { opacity: 0.55; }
+    75% { opacity: 0.55; } 100% { opacity: 0; }
+  }
   .stroke-later { opacity: 0.07; stroke-linecap: round; stroke-linejoin: round; }
   /* 제목 옆 '2/3획' 표시 */
   .stroke-count {
@@ -475,6 +481,8 @@
      장식용 반복 애니메이션과 컨페티만 끈다. */
   @media (prefers-reduced-motion: reduce) {
     .start-badge { animation: none !important; }
+    /* 힌트 획은 깜빡이지 않고 그냥 떠 있다가 스크립트가 걷어 간다 */
+    .hint-flash { animation: none !important; opacity: 0.55; }
     .info-objects .emoji, .encourage-badge, .stamp.active {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
