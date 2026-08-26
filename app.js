@@ -25,6 +25,8 @@ const STATE = {
   category: 'number',    // 홈에서 고른 탭
   step: 0,               // 0=보기, 1=따라쓰기, 2=혼자쓰기
   strokes: [],           // 사용자가 그린 stroke 리스트
+  traceIndex: 0,         // 따라쓰기에서 지금 그을 차례인 획
+  traceMiss: 0,          // 같은 획에서 연달아 빗나간 횟수
   drawing: false,
   currentStroke: null,
   activePointerId: null, // 그리는 중인 포인터 (멀티터치 방지)
@@ -725,11 +727,18 @@ function padViewBox(vb, pad) {
   return `${n[0] - pad} ${n[1] - pad} ${n[2] + pad * 2} ${n[3] + pad * 2}`;
 }
 
+// 단어는 지금 몇 번째 글자를 쓰는지 알려 준다
+function partLabel() {
+  const item = currentItem();
+  const data = currentGlyph();
+  if (!item || !data || partCount() <= 1) return '';
+  return ` (${item.id} 중 ‘${data.id}’)`;
+}
+
 function renderStep() {
   const item = currentItem();
   const data = currentGlyph();
-  // 단어는 지금 몇 번째 글자를 쓰는지 알려 준다
-  const where = partCount() > 1 ? ` (${item.id} 중 ‘${data.id}’)` : '';
+  const where = partLabel();
   const titleEl = document.getElementById('canvasTitle');
   const svg = document.getElementById('guideSvg');
   const actionBar = document.getElementById('actionBar');
@@ -746,6 +755,8 @@ function renderStep() {
   hideStamp();
 
   STATE.strokes = [];
+  STATE.traceIndex = 0;   // 지금 그을 획
+  STATE.traceMiss = 0;    // 같은 자리에서 헤맨 횟수
   clearCanvas();
   resizeCanvas();
 
@@ -765,8 +776,8 @@ function renderStep() {
     actionBar.innerHTML = bar(emptySlot,
       '<button type="button" class="btn btn-cta" onclick="nextStep()">따라 써 볼래요</button>');
   } else if (STATE.step === 1) {
-    titleEl.textContent = `점선을 따라가요${where}`;
     renderStepTrace(svg, data);
+    setTraceTitle(data);
     actionBar.innerHTML = bar(erase,
       '<button type="button" class="btn btn-cta" onclick="checkTrace()">다 했어요</button>');
   } else if (STATE.step === 2) {
@@ -897,58 +908,79 @@ function stopStrokeDemo() {
   if (btn) btn.disabled = false;
 }
 
-// ---------- 2단계: 따라쓰기 (연한 띠 + 가는 점선 + 시작 배지 + 끝 화살표) ----------
-// 교재의 점선 칸처럼 세 겹으로 나눈다. 굵기와 진하기로 층을 만든다:
-//   띠 16% (굵기 sw) → 점선 70% (굵기 sw*0.115) → 배지·화살표 100%.
-// 배지와 화살표는 획 '바깥'에 놓는다. 획 위에 얹으면 아이가 이제부터 그으려는
-// 바로 그 부분(첫 획의 시작 캡)을 가린다.
+/*
+ * 2단계: 따라쓰기 — 지금 그을 획 하나만 또렷하게.
+ *
+ * 예전엔 획을 전부 똑같이 깔아 놓았다. 그러면 아이는 눈에 먼저 띄는 획부터
+ * 긋고, 앱은 그걸 그대로 받아 줬다. 획순이 이 앱이 가르치는 전부인데도.
+ * 다 쓴 획은 옅게 남겨 지금까지 만든 모양을 보여 주고, 아직 아닌 획은
+ * 글자 윤곽만 짐작될 만큼 흐리게 둔다.
+ *
+ * 지금 획의 안내는 시안의 세 겹 그대로다. 굵기와 진하기로 층을 만든다:
+ *   띠 16% (굵기 sw) → 점선 70% (굵기 sw*DOT_WIDTH) → 배지·화살표 100%.
+ * 배지와 화살표는 획 '바깥'에 놓는다. 획 위에 얹으면 아이가 이제부터 그으려는
+ * 바로 그 부분(시작 캡)을 가린다.
+ */
 function renderStepTrace(svg, data) {
   svg.innerHTML = '';
   const sw = strokeW(data);
+  const now = Math.min(STATE.traceIndex, data.strokes.length - 1);
 
-  // ① 어디를 지나가는지 보여주는 넓고 연한 띠
-  data.strokes.forEach(s => {
+  // 이미 쓴 획 — 옅게 채워 둔다
+  data.strokes.slice(0, STATE.traceIndex).forEach(st => {
     svg.appendChild(svgEl('path', {
-      d: s.d, class: 'stroke-outline guide-band',
+      d: st.d, class: 'stroke-outline stroke-done',
       stroke: data.color, 'stroke-width': sw
     }));
   });
 
-  // ② 그 위에 얹는 가는 점선 (획의 중심선)
-  data.strokes.forEach(s => {
+  // 아직 차례가 아닌 획 — 글자 전체 모양은 보이되 눈에 띄지 않게
+  data.strokes.slice(STATE.traceIndex + 1).forEach(st => {
     svg.appendChild(svgEl('path', {
-      d: s.d, class: 'stroke-outline guide-dots',
-      stroke: data.color, 'stroke-width': sw * DOT_WIDTH,
-      'stroke-dasharray': (sw * DOT_DASH) + ' ' + (sw * DOT_GAP)
+      d: st.d, class: 'stroke-outline stroke-later',
+      stroke: data.color, 'stroke-width': sw
     }));
   });
 
-  // ③ 시작 배지와 끝 화살표 — 둘 다 획 바깥
-  const numbered = data.strokes.length <= MAX_NUMBERED;
-  const placed = [];
+  const cur = data.strokes[now];
+  if (!cur) return;
+
+  // ① 어디를 지나가는지 보여주는 넓고 연한 띠
+  svg.appendChild(svgEl('path', {
+    d: cur.d, class: 'stroke-outline guide-band',
+    stroke: data.color, 'stroke-width': sw
+  }));
+
+  // ② 그 위에 얹는 가는 점선 (획의 중심선)
+  svg.appendChild(svgEl('path', {
+    d: cur.d, class: 'stroke-outline guide-dots',
+    stroke: data.color, 'stroke-width': sw * DOT_WIDTH,
+    'stroke-dasharray': (sw * DOT_DASH) + ' ' + (sw * DOT_GAP)
+  }));
+
+  // ③ 시작 배지와 끝 화살표 — 둘 다 획 바깥. 지금 획 하나뿐이라 겹칠 일이 없다.
   const badgeR = sw * 0.42;
-  data.strokes.forEach((s, i) => {
-    const probe = svgEl('path', { d: s.d, fill: 'none', stroke: 'none' });
-    svg.appendChild(probe);
-    const withNumber = numbered || i === 0;
-    const r = withNumber ? badgeR : badgeR * 0.5;
-    const b = placeOutside(probe, 0, sw, r, placed);
-    svg.appendChild(svgEl('circle', {
-      cx: b.x, cy: b.y, r: r, fill: data.color,
-      stroke: 'white', 'stroke-width': sw * 0.09, class: 'start-badge'
-    }));
-    if (withNumber) {
-      const label = svgEl('text', {
-        x: b.x, y: b.y + r * 0.36, 'text-anchor': 'middle',
-        'font-size': r * 1.1, 'font-weight': 'bold', fill: 'white',
-        'font-family': FONT_FAMILY
-      });
-      label.textContent = (i + 1);
-      svg.appendChild(label);
-    }
-    addEndArrow(svg, probe, data.color, sw);
-    probe.remove();
+  const probe = svgEl('path', { d: cur.d, fill: 'none', stroke: 'none' });
+  svg.appendChild(probe);
+  const badge = placeOutside(probe, 0, sw, badgeR, []);
+  addEndArrow(svg, probe, data.color, sw);
+  probe.remove();
+
+  svg.appendChild(svgEl('circle', {
+    cx: badge.x, cy: badge.y, r: badgeR, fill: data.color,
+    stroke: 'white', 'stroke-width': sw * 0.09, class: 'start-badge current'
+  }));
+  const label = svgEl('text', {
+    x: badge.x, y: badge.y + badgeR * 0.36, 'text-anchor': 'middle',
+    'font-size': badgeR * 1.1, 'font-weight': 'bold', fill: 'white',
+    'font-family': FONT_FAMILY
   });
+  label.textContent = (now + 1);
+  svg.appendChild(label);
+}
+  });
+  label.textContent = (now + 1);
+  svg.appendChild(label);
 }
 
 // 획의 끝점 바깥에 화살촉 하나. 예전에는 띠 한가운데에 두세 개를 흩뿌렸는데,
@@ -1077,6 +1109,7 @@ function endDraw(e) {
   STATE.activePointerId = null;
   STATE.drawing = false;
   STATE.currentStroke = null;
+  if (STATE.step === 1) { judgeTraceStroke(); return; }
   // 격려 뱃지
   if (STATE.strokes.length === 1) {
     showEncourage('잘하고 있어요!');
@@ -1117,8 +1150,15 @@ function clearAll() {
   sfxTap();
   STATE.strokes = [];
   clearCanvas();
+  if (STATE.step === 1) {
+    STATE.traceIndex = 0;
+    STATE.traceMiss = 0;
+    const data = currentGlyph();
+    if (data) { renderStepTrace(document.getElementById('guideSvg'), data); setTraceTitle(data); }
+  }
 }
 
+// icon 인자는 옛 이모지 뱃지의 잔재다. #11 에서 조작 이모지를 걷어냈으므로 쓰지 않는다.
 function showEncourage(msg) {
   const existing = document.querySelector('.encourage-badge');
   if (existing) existing.remove();
@@ -1129,12 +1169,170 @@ function showEncourage(msg) {
   later(() => b.remove(), 1600);
 }
 
+/*
+ * ---------- 획순 판정 ----------
+ *
+ * 이 앱이 가르치는 건 글자 모양이 아니라 쓰는 순서다. 그런데 따라쓰기가
+ * 획을 전부 한꺼번에 깔아 두고 점 15개만 그으면 통과시켜서, 순서를 거꾸로
+ * 써도 그대로 넘어갔다. 순서를 안 보면 따라쓰기가 낙서와 다를 게 없다.
+ *
+ * 그래서 한 획씩 차례로만 받는다. 다만 '틀렸다'고 말하지는 않는다. 맞지
+ * 않으면 그 획을 지우고 지금 그을 자리를 다시 가리킬 뿐이다. 채점도, 점수도,
+ * 모양 비교도 하지 않는다 — 순서와 방향만 본다.
+ *
+ * 네 살 손을 기준으로 넉넉하게 잡았다. 획 굵기를 자로 삼아 시작점은 그
+ * 1.8배 안, 지나간 자리는 0.9배 안이면 지난 것으로 치고, 열에 여섯만 지나면
+ * 통과다.
+ */
+const TRACE_SAMPLES = 32;      // 안내 획을 몇 점으로 쪼개 훑어볼지
+const TRACE_COVER = 0.6;       // 그중 몇 할을 지나야 통과인지
+const TRACE_STAY = 0.6;        // 그은 획이 안내 위에 머무른 비율
+const TRACE_NEAR = 0.9;        // 지나간 것으로 치는 거리 (획 굵기의 배수)
+const TRACE_START = 1.8;       // 시작점이 맞다고 치는 거리 (획 굵기의 배수)
+
+// 안내 획을 캔버스 좌표의 점 목록으로 바꾼다. 그리기 좌표와 자를 맞춰야
+// 거리 비교가 뜻을 갖는다.
+function guideSamples(d, n) {
+  const svg = document.getElementById('guideSvg');
+  const probe = svgEl('path', { d: d, fill: 'none', stroke: 'none' });
+  svg.appendChild(probe);
+  const len = probe.getTotalLength();
+  const m = probe.getScreenCTM();
+  const rect = document.getElementById('drawCanvas').getBoundingClientRect();
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const q = probe.getPointAtLength(len * i / n);
+    pts.push({
+      x: q.x * m.a + q.y * m.c + m.e - rect.left,
+      y: q.x * m.b + q.y * m.d + m.f - rect.top
+    });
+  }
+  const scale = Math.hypot(m.a, m.b);
+  probe.remove();
+  return { pts: pts, scale: scale };
+}
+
+function nearestDist(p, list) {
+  let best = Infinity;
+  for (let i = 0; i < list.length; i++) {
+    const dx = p.x - list[i].x, dy = p.y - list[i].y;
+    const d = dx * dx + dy * dy;
+    if (d < best) best = d;
+  }
+  return Math.sqrt(best);
+}
+
+// 원(ㅇ·ㅎ·숫자 0)은 시작점과 끝점이 같아 앞뒤로 방향을 가릴 수 없다.
+// 무게중심을 돌아가는 방향의 부호로 가린다.
+function windingSign(pts) {
+  let cx = 0, cy = 0;
+  pts.forEach(p => { cx += p.x; cy += p.y; });
+  cx /= pts.length; cy /= pts.length;
+  let sum = 0;
+  for (let i = 1; i < pts.length; i++) {
+    sum += (pts[i - 1].x - cx) * (pts[i].y - cy) - (pts[i].x - cx) * (pts[i - 1].y - cy);
+  }
+  return Math.sign(sum);
+}
+
+/*
+ * 그은 획이 data.strokes[i] 를 따라간 것인지. 모양의 좋고 나쁨은 보지 않는다.
+ *
+ * 시작점 허용 범위는 이웃 획의 시작점까지 거리의 절반을 넘지 않게 한다.
+ * 받침 ㄹ·ㅌ 처럼 나란한 가로획이 좁게 붙어 있으면, 넉넉한 허용 범위 하나로는
+ * 위 획과 가운데 획을 가릴 수 없어 순서를 바꿔 써도 통과했다(2956 조합 중
+ * 57건). 획끼리 멀면 예전처럼 넉넉하게, 붙어 있을 때만 좁아진다.
+ */
+function strokeFollows(user, data, i) {
+  if (!user || user.length < 2) return false;
+  const sw = strokeW(data);
+  const g = guideSamples(data.strokes[i].d, TRACE_SAMPLES);
+  const near = sw * g.scale * TRACE_NEAR;
+  const gs = g.pts[0], ge = g.pts[g.pts.length - 1];
+  let neighbour = Infinity;
+  data.strokes.forEach((s, j) => {
+    if (j === i) return;
+    const q = guideSamples(s.d, 1).pts[0];
+    neighbour = Math.min(neighbour, Math.hypot(q.x - gs.x, q.y - gs.y));
+  });
+  const startTol = Math.max(sw * g.scale * 0.7,
+    Math.min(sw * g.scale * TRACE_START, neighbour * 0.5));
+  const u0 = user[0], u1 = user[user.length - 1];
+
+  if (Math.hypot(u0.x - gs.x, u0.y - gs.y) > startTol) return false;
+
+  const closed = Math.hypot(gs.x - ge.x, gs.y - ge.y) <= startTol;
+  if (closed) {
+    if (windingSign(user) !== windingSign(g.pts)) return false;
+  } else if (Math.hypot(u1.x - ge.x, u1.y - ge.y) > Math.hypot(u1.x - gs.x, u1.y - gs.y)) {
+    return false;   // 끝에서 시작해 거꾸로 그은 획
+  }
+
+  // 안내를 얼마나 지났는가
+  let hit = 0;
+  g.pts.forEach(p => { if (nearestDist(p, user) <= near) hit++; });
+  if (hit / g.pts.length < TRACE_COVER) return false;
+
+  // 안내 위에 머물렀는가. 이게 없으면 'ㅁ' 처럼 획이 굵기 안쪽으로 붙은
+  // 자리에서 옆 획을 그어도 통과했다 — 시작점이 같아 가릴 방법이 없었다.
+  let stay = 0;
+  user.forEach(p => { if (nearestDist(p, g.pts) <= near) stay++; });
+  return stay / user.length >= TRACE_STAY;
+}
+
+// 방금 그은 획을 받아들일지 결정한다. 받아들이지 않으면 지우고 다시 안내한다.
+function judgeTraceStroke() {
+  const data = currentGlyph();
+  const stroke = STATE.strokes[STATE.strokes.length - 1];
+  if (!data || !stroke) return;
+  const i = STATE.traceIndex;
+  if (!data.strokes[i]) return;
+
+  if (strokeFollows(stroke.points, data, i)) {
+    STATE.traceIndex++;
+    STATE.traceMiss = 0;
+    sfxTap();
+    const left = data.strokes.length - STATE.traceIndex;
+    if (left === 0) { checkTrace(); return; }
+    showEncourage(left === 1 ? '좋아요! 한 획 남았어요' : '좋아요! 다음 획이에요');
+    renderStepTrace(document.getElementById('guideSvg'), data);
+    setTraceTitle(data);
+    return;
+  }
+
+  // 순서만 어긋난 것인지, 아예 다른 자리인지 갈라서 말해 준다.
+  let other = -1;
+  for (let j = 0; j < data.strokes.length; j++) {
+    if (j !== i && strokeFollows(stroke.points, data, j)) { other = j; break; }
+  }
+  STATE.strokes.pop();
+  redrawUserStrokes();
+  showEncourage(other > i ? '그 획은 조금 뒤에 써요' : '반짝이는 점에서 시작해요', '✨');
+  const dot = document.querySelector('#guideSvg .start-dot.current');
+  if (dot) { dot.classList.remove('current'); void dot.getBoundingClientRect(); dot.classList.add('current'); }
+
+  // 같은 자리에서 세 번 헤매면 말로 더 설명하는 대신 쓰는 순서를 다시 보여 준다.
+  STATE.traceMiss++;
+  if (STATE.traceMiss >= 3) { STATE.traceMiss = 0; later(() => playStrokeDemo(true), 700); }
+}
+
+// 몇 획째인지 제목에 붙인다 — 부모가 옆에서 보고 짚어 줄 수 있게.
+function setTraceTitle(data) {
+  const el = document.getElementById('canvasTitle');
+  if (!el) return;
+  const total = data.strokes.length;
+  const where = partLabel();
+  el.innerHTML = `✏️ 점선을 따라 손가락으로 그려보세요${where}` +
+    (total > 1 ? ` <span class="stroke-count">${Math.min(STATE.traceIndex + 1, total)}/${total}획</span>` : '');
+}
+
 // ---------- 검사 & 완료 ----------
 function checkTrace() {
-  // 최소한 뭔가 그렸는지만 확인 (아이용 - 너무 엄격하지 않게)
-  const totalPoints = STATE.strokes.reduce((sum, s) => sum + s.points.length, 0);
-  if (totalPoints < 15) {
-    showEncourage('조금 더 그려볼까요?');
+  // 획을 순서대로 다 그었는지. 못 채웠으면 몇 획 남았는지만 알려 준다.
+  const data = currentGlyph();
+  const left = data ? data.strokes.length - STATE.traceIndex : 0;
+  if (left > 0) {
+    showEncourage(left + '획 더 남았어요', '✏️');
     return;
   }
   if (partCount() > 1) {      // 단어는 글자마다 축하하지 않고 바로 넘어간다
