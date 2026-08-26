@@ -30,6 +30,9 @@ const STATE = {
   drawing: false,
   currentStroke: null,
   activePointerId: null, // 그리는 중인 포인터 (멀티터치 방지)
+  soloDone: [],          // 혼자쓰기에서 알아본 획
+  soloHintAt: 0,         // 마지막으로 힌트를 띄운 시각 (잔소리 방지)
+  soloClean: true,       // 혼자쓰기를 처음부터 끝까지 순서대로 썼는지
   progress: loadProgress(),  // { "3": 3, "ㄱ": 2 } -> 항목별 별 개수
   audioCtx: null,
   timers: [],            // 살아있는 setTimeout id 전부
@@ -595,6 +598,7 @@ function openPractice(id) {
   STATE.currentId = String(id);
   STATE.partIndex = 0;
   STATE.step = 0;
+  STATE.soloClean = true;   // 단어는 글자마다가 아니라 통째로 본다
   document.getElementById('home').classList.remove('active');
   document.getElementById('practice').classList.add('active');
   renderPractice();
@@ -757,6 +761,8 @@ function renderStep() {
   STATE.strokes = [];
   STATE.traceIndex = 0;   // 지금 그을 획
   STATE.traceMiss = 0;    // 같은 자리에서 헤맨 횟수
+  STATE.soloDone = [];    // 혼자쓰기에서 알아본 획
+  STATE.soloHintAt = 0;   // 힌트 텀은 글자 안에서만 — 다음 글자까지 물고 가지 않는다
   clearCanvas();
   resizeCanvas();
 
@@ -1106,6 +1112,8 @@ function endDraw(e) {
   STATE.drawing = false;
   STATE.currentStroke = null;
   if (STATE.step === 1) { judgeTraceStroke(); return; }
+  // 힌트를 띄웠으면 그 말을 칭찬으로 덮지 않는다 — 첫 획이 어긋난 순간이 그렇다.
+  if (STATE.step === 2 && judgeSoloStroke()) return;
   // 격려 뱃지
   if (STATE.strokes.length === 1) {
     showEncourage('잘하고 있어요!');
@@ -1145,6 +1153,8 @@ function clearCanvas() {
 function clearAll() {
   sfxTap();
   STATE.strokes = [];
+  STATE.soloDone = [];
+  STATE.soloHintAt = 0;
   clearCanvas();
   if (STATE.step === 1) {
     STATE.traceIndex = 0;
@@ -1239,11 +1249,16 @@ function windingSign(pts) {
  * 위 획과 가운데 획을 가릴 수 없어 순서를 바꿔 써도 통과했다(2956 조합 중
  * 57건). 획끼리 멀면 예전처럼 넉넉하게, 붙어 있을 때만 좁아진다.
  */
-function strokeFollows(user, data, i) {
+function strokeFollows(user, data, i, loose) {
   if (!user || user.length < 2) return false;
   const sw = strokeW(data);
+  // 혼자쓰기는 안내가 없어 글자를 통째로 옮겨 쓰는 게 예사다. 통로를 넓혀
+  // 자리보다 모양과 방향으로 알아보게 한다.
+  const cover = loose ? TRACE_COVER - 0.1 : TRACE_COVER;
+  const stayMin = loose ? TRACE_STAY - 0.1 : TRACE_STAY;
+  const startMul = loose ? TRACE_START * 1.7 : TRACE_START;
   const g = guideSamples(data.strokes[i].d, TRACE_SAMPLES);
-  const near = sw * g.scale * TRACE_NEAR;
+  const near = sw * g.scale * (loose ? TRACE_NEAR * 1.4 : TRACE_NEAR);
   const gs = g.pts[0], ge = g.pts[g.pts.length - 1];
   let neighbour = Infinity;
   data.strokes.forEach((s, j) => {
@@ -1252,7 +1267,7 @@ function strokeFollows(user, data, i) {
     neighbour = Math.min(neighbour, Math.hypot(q.x - gs.x, q.y - gs.y));
   });
   const startTol = Math.max(sw * g.scale * 0.7,
-    Math.min(sw * g.scale * TRACE_START, neighbour * 0.5));
+    Math.min(sw * g.scale * startMul, neighbour * 0.5));
   const u0 = user[0], u1 = user[user.length - 1];
 
   if (Math.hypot(u0.x - gs.x, u0.y - gs.y) > startTol) return false;
@@ -1267,13 +1282,13 @@ function strokeFollows(user, data, i) {
   // 안내를 얼마나 지났는가
   let hit = 0;
   g.pts.forEach(p => { if (nearestDist(p, user) <= near) hit++; });
-  if (hit / g.pts.length < TRACE_COVER) return false;
+  if (hit / g.pts.length < cover) return false;
 
   // 안내 위에 머물렀는가. 이게 없으면 'ㅁ' 처럼 획이 굵기 안쪽으로 붙은
   // 자리에서 옆 획을 그어도 통과했다 — 시작점이 같아 가릴 방법이 없었다.
   let stay = 0;
   user.forEach(p => { if (nearestDist(p, g.pts) <= near) stay++; });
-  return stay / user.length >= TRACE_STAY;
+  return stay / user.length >= stayMin;
 }
 
 // 방금 그은 획을 받아들일지 결정한다. 받아들이지 않으면 지우고 다시 안내한다.
@@ -1312,6 +1327,68 @@ function judgeTraceStroke() {
   if (STATE.traceMiss >= 3) { STATE.traceMiss = 0; later(() => playStrokeDemo(true), 700); }
 }
 
+/*
+ * 혼자쓰기는 막지 않는다. 안내 없이 제 손으로 써 보는 자리라 획을 지우거나
+ * 되돌리면 연습이 아니라 시험이 된다. 대신 순서가 어긋난 그 순간에 —
+ * 가르칠 수 있는 유일한 순간이다 — 지금 쓸 획을 잠깐 비춰 준다.
+ *
+ * 1·3·2 순으로 써도 3획은 '쓴 것'으로 세어 둔다. 그러지 않으면 뒤이어
+ * 바르게 쓴 획까지 계속 어긋난 것으로 잡혀 힌트가 잔소리가 된다.
+ *
+ * 힌트를 띄웠으면 true 를 준다. 부르는 쪽이 그 말을 칭찬으로 덮지 않도록.
+ */
+function judgeSoloStroke() {
+  const data = currentGlyph();
+  const stroke = STATE.strokes[STATE.strokes.length - 1];
+  if (!data || !stroke || STATE.demoPlaying) return false;
+  const total = data.strokes.length;
+  if (!STATE.soloDone.length) STATE.soloDone = new Array(total).fill(false);
+
+  const want = STATE.soloDone.indexOf(false);
+  if (want < 0) return false;               // 다 썼으면 더 볼 것이 없다
+
+  let did = -1;
+  for (let j = 0; j < total; j++) {
+    if (!STATE.soloDone[j] && strokeFollows(stroke.points, data, j, true)) { did = j; break; }
+  }
+  if (did < 0) return false;                // 어느 획도 아니면 그냥 둔다 (낙서할 자유)
+
+  STATE.soloDone[did] = true;
+  if (did === want) return false;           // 순서대로 잘 가고 있다
+
+  STATE.soloClean = false;
+  const now = Date.now();
+  if (now - STATE.soloHintAt < 2500) return false;   // 잔소리가 되지 않게 텀을 둔다
+  STATE.soloHintAt = now;
+  showEncourage('지금은 이 획이에요');
+  flashStrokeHint(data, want);
+  return true;
+}
+
+// 획 하나를 잠깐 비춰 준다. 안내 레이어는 건드리지 않고 데모 레이어만 쓴다.
+// 배지는 #11 대로 획 바깥에 — 이제부터 그을 자리를 가리지 않는다.
+function flashStrokeHint(data, i) {
+  const overlay = document.getElementById('demoSvg');
+  const st = data.strokes[i];
+  if (!overlay || !st || STATE.demoPlaying) return;
+  const sw = strokeW(data);
+  const r = sw * 0.42;
+  overlay.innerHTML = '';
+  overlay.appendChild(svgEl('path', {
+    d: st.d, class: 'stroke-outline hint-flash',
+    stroke: data.color, 'stroke-width': sw
+  }));
+  const probe = svgEl('path', { d: st.d, fill: 'none', stroke: 'none' });
+  overlay.appendChild(probe);
+  const badge = placeOutside(probe, 0, sw, r, []);
+  probe.remove();
+  overlay.appendChild(svgEl('circle', {
+    cx: badge.x, cy: badge.y, r: r, fill: data.color,
+    stroke: 'white', 'stroke-width': sw * 0.09, class: 'start-badge hint-flash'
+  }));
+  later(() => { if (!STATE.demoPlaying) overlay.innerHTML = ''; }, 1700);
+}
+
 // 몇 획째인지 제목에 붙인다 — 부모가 옆에서 보고 짚어 줄 수 있게.
 function setTraceTitle(data) {
   const el = document.getElementById('canvasTitle');
@@ -1346,6 +1423,9 @@ function finishPractice() {
     showEncourage('조금 더 그려볼까요?');
     return;
   }
+  // 못 알아본 획이 있으면 순서를 확인한 게 아니므로 칭찬도 하지 않는다.
+  // 이게 없으면 안내에서 멀리 쓰는 아이는 순서를 틀려도 늘 칭찬을 받는다.
+  if (!STATE.soloDone.length || !STATE.soloDone.every(Boolean)) STATE.soloClean = false;
   // 단어는 글자마다 세 단계를 돌고, 마지막 글자를 끝내야 별을 받는다
   if (STATE.partIndex + 1 < partCount()) {
     STATE.partIndex++;
@@ -1376,7 +1456,9 @@ function showStamp(stars, isFinal) {
   el.classList.add('active');
 
   sfxSuccess();
-  later(() => speak(isFinal ? '참 잘했어요' : '잘 따라 썼어요'), 300);
+  // 도장은 #11 대로 최소한만 담는다. 획순 칭찬은 글자를 가리지 않는 소리로.
+  const clean = isFinal && STATE.soloClean;
+  later(() => speak(clean ? '획순까지 참 잘했어요' : (isFinal ? '참 잘했어요' : '잘 따라 썼어요')), 300);
 
   if (isFinal) {
     sfxCelebrate();
