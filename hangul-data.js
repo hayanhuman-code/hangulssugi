@@ -55,9 +55,115 @@
     return out.join(' ');
   }
 
-  // 획 묶음을 상자 (x0,y0)-(x1,y1) 안에 담는다.
-  function box(paths, x0, y0, x1, y1) {
-    return paths.map(d => transform(d, (x1 - x0) / BOX, (y1 - y0) / BOX, x0, y0));
+  // 획 묶음이 실제로 차지하는 범위. 우리 호(A)는 모두 반원이라 현(弦) 가운데에서
+  // 반지름만큼 부푼다.
+  function inkBox(paths) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    function see(x, y) {
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    paths.forEach(d => {
+      let cx = 0, cy = 0, m;
+      CMD.lastIndex = 0;
+      while ((m = CMD.exec(d))) {
+        const cmd = m[1];
+        const n = (m[2].match(NUM) || []).map(Number);
+        if (cmd === 'H') { n.forEach(x => { cx = x; see(cx, cy); }); continue; }
+        if (cmd === 'V') { n.forEach(y => { cy = y; see(cx, cy); }); continue; }
+        if (cmd === 'A') {
+          for (let i = 0; i + 6 < n.length; i += 7) {
+            const mx = (cx + n[i + 5]) / 2, my = (cy + n[i + 6]) / 2;
+            see(mx - n[i], my - n[i + 1]); see(mx + n[i], my + n[i + 1]);
+            cx = n[i + 5]; cy = n[i + 6];
+          }
+          continue;
+        }
+        for (let i = 0; i + 1 < n.length; i += 2) { cx = n[i]; cy = n[i + 1]; see(cx, cy); }
+      }
+    });
+    return [x0, y0, x1, y1];
+  }
+
+  /*
+   * 획 묶음의 '잉크'를 상자 (x0,y0)-(x1,y1) 에 맞춘다.
+   *
+   * 예전에는 1000 상자를 통째로 옮겨 자리를 나눴는데, 자모마다 그 상자를 채우는
+   * 정도가 달라 어긋났다. ㅗ 는 y 180~530 에만 그려져 있어 자리의 절반을 빈 채로
+   * 먹었고, 그래서 '과' 의 왼쪽 칸은 아래 3분의 1이 통째로 비고 ㄱ 은 천장에
+   * 붙어 떠 보였다. ㄱ 도 1000 중 540 만 차지해 어떤 자리에 넣든 폭의 절반밖에
+   * 쓰지 못했다. 자리는 잉크 기준으로 나눠야 자리 값이 곧 보이는 값이 된다.
+   *
+   * 자리마다 자모가 눌리는 정도는 원래 다르다 — '고' 의 ㄱ 은 폰트에서도 옆으로
+   * 길다. 다만 두 배 넘게 눌리면 ㅅ·ㅈ 의 삐침이 45도보다 누워서, 위에서 아래로
+   * 긋던 획이 왼쪽으로 긋는 획처럼 보인다. 그래서 눌림을 두 배로 묶고 남는
+   * 자리는 상자 가운데를 잡아 비운다.
+   *
+   * 획이 하나뿐이라 두께가 0 인 축(ㅡ 의 세로, ㅣ 의 가로)은 늘릴 수 없으니
+   * 이 역시 상자 한가운데에 둔다.
+   */
+  const MAX_SQUASH = 2;
+
+  /*
+   * 세로에 가까운 획의 기울기는 자리 비율을 따라가면 안 된다.
+   *
+   * ㄱ 의 내리획은 세로에서 12.3도 기운 획이다. 그런데 자리가 납작하면
+   * 가로로만 늘어나 '고'·'구' 에서 23.6도까지 누웠다 — 낱자로 쓴 ㄱ 과
+   * 각도가 두 배 차이가 나니 같은 글자로 보이지 않고, 한글을 처음 쓰는
+   * 사람이 그린 것처럼 어색해진다.
+   *
+   * 가로 이동량을 미리 sy/sx 로 나눠 두면 뒤이어 sx 가 곱해져 결국 sy 로
+   * 스케일된다. 세로와 같은 배율이니 각도가 낱자 그대로 남는다.
+   *
+   * ㅅ·ㅈ 의 삐침(세로에서 24도 넘게 벌어진 획)은 자리 폭을 따라 벌어지는
+   * 게 맞으므로 건드리지 않는다. 세로에 가까운 획만 골라낸다.
+   */
+  const TILT_LIMIT = 0.33;   // 세로 대비 가로 이동 비율 — 약 18도
+
+  function unskew(d, k) {
+    const out = [];
+    let cx = 0, cy = 0, m;
+    CMD.lastIndex = 0;
+    while ((m = CMD.exec(d))) {
+      const cmd = m[1];
+      const n = (m[2].match(NUM) || []).map(Number);
+      if (cmd === 'L') {
+        const pts = [];
+        for (let i = 0; i + 1 < n.length; i += 2) {
+          let x = n[i];
+          const y = n[i + 1], dx = x - cx, dy = y - cy;
+          if (dx !== 0 && Math.abs(dx) < Math.abs(dy) * TILT_LIMIT) x = cx + dx * k;
+          pts.push(round(x) + ',' + round(y));
+          cx = x; cy = y;
+        }
+        out.push('L' + pts.join(' '));
+        continue;
+      }
+      out.push(m[0].trim());
+      if (cmd === 'M') {
+        for (let i = 0; i + 1 < n.length; i += 2) { cx = n[i]; cy = n[i + 1]; }
+      } else if (cmd === 'H') { if (n.length) cx = n[n.length - 1]; }
+      else if (cmd === 'V') { if (n.length) cy = n[n.length - 1]; }
+      else if (cmd === 'A') {
+        for (let i = 0; i + 6 < n.length; i += 7) { cx = n[i + 5]; cy = n[i + 6]; }
+      }
+    }
+    return out.join(' ');
+  }
+
+  function fit(paths, x0, y0, x1, y1) {
+    const b = inkBox(paths);
+    const w = b[2] - b[0], h = b[3] - b[1];
+    let sx = w > 0 ? (x1 - x0) / w : 1;
+    let sy = h > 0 ? (y1 - y0) / h : 1;
+    if (w > 0 && h > 0) {
+      if (sx > sy * MAX_SQUASH) sx = sy * MAX_SQUASH;
+      else if (sy > sx * MAX_SQUASH) sy = sx * MAX_SQUASH;
+    }
+    const tx = (x0 + x1) / 2 - (w > 0 ? (b[0] + b[2]) / 2 * sx : b[0]);
+    const ty = (y0 + y1) / 2 - (h > 0 ? (b[1] + b[3]) / 2 * sy : b[1]);
+    const k = (sx === sy || PRESHAPED.has(paths)) ? 1 : sy / sx;
+    return paths.map(d => transform(k === 1 ? d : unskew(d, k), sx, sy, tx, ty));
   }
 
   function startOf(d) {
@@ -83,9 +189,21 @@
     'ㅎ': ['M500,110 V220', 'M250,330 H750', 'M500,410 A190,190 0 1 0 500,790 A190,190 0 1 0 500,410']
   };
 
-  // 쌍자음 · 겹받침 — 같은 자리에 둘을 좌우로 눌러 담는다
+  /*
+   * 쌍자음 · 겹받침 — 같은 자리에 둘을 좌우로 눌러 담는다. 폰트에서도
+   * ㄲ 의 두 짝은 좁고 길게 눌러 쓴다.
+   *
+   * 다만 이렇게 만든 묶음은 음절을 조립할 때 fit 이 한 번 더 걸린다. 그때
+   * 보이는 건 이미 눌린 모양이라 ㅅ 의 삐침이 세로에 가까워 보이고, ㄱ 의
+   * 내리획으로 착각해 기울기를 붙들면 '쌍' 의 ㅆ 두 짝이 붙는다. 그래서
+   * 여기서 만든 묶음은 표시해 두고 두 번째 fit 에서는 보정을 건너뛴다.
+   */
+  const PRESHAPED = new Set();
+
   function pair(a, b) {
-    return box(a, 0, 60, 470, 940).concat(box(b, 530, 60, 1000, 940));
+    const made = fit(a, 110, 280, 350, 765).concat(fit(b, 650, 280, 890, 765));
+    PRESHAPED.add(made);
+    return made;
   }
   const DOUBLES = {
     'ㄲ': ['ㄱ', 'ㄱ'], 'ㄸ': ['ㄷ', 'ㄷ'], 'ㅃ': ['ㅂ', 'ㅂ'], 'ㅆ': ['ㅅ', 'ㅅ'], 'ㅉ': ['ㅈ', 'ㅈ'],
@@ -123,7 +241,7 @@
     'ㅢ': ['ㅡ', 'ㅣ']
   };
   Object.keys(PARTS).forEach(k => {
-    VOW[k] = box(VOW[PARTS[k][0]], 40, 400, 560, 920).concat(box(VOW[PARTS[k][1]], 540, 60, 980, 940));
+    VOW[k] = fit(VOW[PARTS[k][0]], 60, 480, 560, 800).concat(fit(VOW[PARTS[k][1]], 640, 150, 900, 850));
   });
 
   // ---------- 음절 조립 ----------
@@ -143,11 +261,18 @@
     };
   }
 
-  // 자리 배치는 한글 조합 규칙 그대로.
-  //   세로모음(가) 초성 왼쪽, 모음 세로획이 글자 전체 높이
-  //   가로모음(고) 초성 위,   모음이 아래 전체 폭
-  //   겹모음(과)   초성 왼쪽 위, 가로모음 왼쪽 아래, 세로모음 오른쪽 전체 높이
-  // 받침이 붙으면 위쪽을 눌러 올리고 아래에 종성 자리를 만든다.
+  /*
+   * 자리 배치는 한글 조합 규칙 그대로.
+   *   세로모음(가) 초성 왼쪽, 모음 세로획이 글자 전체 높이
+   *   가로모음(고) 초성 위,   모음이 아래 전체 폭
+   *   겹모음(과)   초성 왼쪽 위, 가로모음 왼쪽 아래, 세로모음 오른쪽 전체 높이
+   * 받침이 붙으면 위쪽을 눌러 올리고 아래에 종성 자리를 만든다.
+   *
+   * 아래 상자는 모두 '잉크가 놓일 자리'다(fit). 비율은 Gothic A1 의 같은 글자를
+   * 재서 맞췄다 — 이를테면 '고' 의 ㄱ 은 폰트에서 글자 폭의 80% 를 쓰는데
+   * 예전 배치는 28% 만 썼다. 다만 획이 굵어 겹치면 알아볼 수 없으므로 폰트처럼
+   * ㄱ 의 내리획을 ㅗ 옆까지 늘리지는 않고, 위아래로 나란히 쌓는다.
+   */
   function syllable(ch) {
     const p = decompose(ch);
     if (!p) return null;
@@ -159,10 +284,20 @@
     if (parts) {
       const h = VOW[parts[0]], v = VOW[parts[1]];
       if (!h || !v) return null;
+      /*
+       * 겹모음은 왼쪽 칸을 위아래로 나눠 쓰느라 초성이 가장 눌린다. ㄱ 의
+       * 내리획이 굵기의 두 배밖에 안 되면 획이 아니라 뭉툭한 혹처럼 보여
+       * 초성에 높이를 더 줬다(240 → 300, 글자 높이의 43% 로 폰트와 같은 비율).
+       *
+       * 폰트는 내리획을 가로모음의 세로획 옆까지 더 길게 내리지만 우리는
+       * 그러지 않는다. ㅇ·ㅁ 처럼 아래가 넓은 자음까지 같이 내려가 '와·왜·
+       * 워·위' 에서 가로모음과 붙어 버린다. 위아래로 쌓고 사이를 획 굵기
+       * (1000 기준 120)보다 넓게 벌린다.
+       */
       return f
-        ? box(c, 80, 50, 445, 375).concat(box(h, 50, 350, 525, 625),
-            box(v, 540, 40, 940, 625), box(f, 195, 630, 805, 955))
-        : box(c, 80, 70, 470, 470).concat(box(h, 50, 440, 545, 905), box(v, 555, 50, 950, 950));
+        ? fit(c, 160, 120, 470, 290).concat(fit(h, 130, 420, 470, 560),
+            fit(v, 650, 100, 880, 560), fit(f, 290, 690, 710, 890))
+        : fit(c, 190, 150, 500, 450).concat(fit(h, 100, 600, 450, 800), fit(v, 660, 150, 880, 850));
     }
 
     const vow = VOW[p.jung];
@@ -170,19 +305,19 @@
 
     if (WIDE.indexOf(p.jung) >= 0) {
       return f
-        ? box(c, 290, 50, 710, 370).concat(box(vow, 60, 350, 940, 630), box(f, 265, 620, 735, 955))
-        : box(c, 240, 60, 760, 480).concat(box(vow, 60, 440, 940, 930));
+        ? fit(c, 220, 100, 780, 280).concat(fit(vow, 120, 410, 880, 545), fit(f, 300, 675, 700, 890))
+        : fit(c, 150, 165, 860, 465).concat(fit(vow, 120, 615, 880, 815));
     }
 
     const roomy = TALL_WIDE.indexOf(p.jung) >= 0;
     if (f) {
       return roomy
-        ? box(c, 60, 60, 430, 530).concat(box(vow, 410, 30, 950, 565), box(f, 195, 570, 805, 955))
-        : box(c, 70, 60, 480, 530).concat(box(vow, 460, 30, 930, 565), box(f, 195, 570, 805, 955));
+        ? fit(c, 120, 130, 390, 430).concat(fit(vow, 560, 110, 880, 450), fit(f, 290, 620, 710, 890))
+        : fit(c, 130, 130, 480, 430).concat(fit(vow, 650, 110, 880, 450), fit(f, 290, 620, 710, 890));
     }
     return roomy
-      ? box(c, 60, 90, 470, 850).concat(box(vow, 450, 50, 960, 950))
-      : box(c, 70, 90, 540, 850).concat(box(vow, 510, 50, 950, 950));
+      ? fit(c, 120, 220, 390, 700).concat(fit(vow, 560, 150, 880, 850))
+      : fit(c, 130, 220, 480, 700).concat(fit(vow, 650, 150, 880, 850));
   }
 
   // 자음 · 모음 낱자, 또는 음절 하나
