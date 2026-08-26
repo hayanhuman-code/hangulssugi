@@ -762,6 +762,7 @@ function renderStep() {
   STATE.traceIndex = 0;   // 지금 그을 획
   STATE.traceMiss = 0;    // 같은 자리에서 헤맨 횟수
   STATE.soloDone = [];    // 혼자쓰기에서 알아본 획
+  STATE.soloHintAt = 0;   // 힌트 텀은 글자 안에서만 — 다음 글자까지 물고 가지 않는다
   clearCanvas();
   resizeCanvas();
 
@@ -1111,7 +1112,8 @@ function endDraw(e) {
   STATE.drawing = false;
   STATE.currentStroke = null;
   if (STATE.step === 1) { judgeTraceStroke(); return; }
-  if (STATE.step === 2) { judgeSoloStroke(); }
+  // 힌트를 띄웠으면 그 말을 칭찬으로 덮지 않는다 — 첫 획이 어긋난 순간이 그렇다.
+  if (STATE.step === 2 && judgeSoloStroke()) return;
   // 격려 뱃지
   if (STATE.strokes.length === 1) {
     showEncourage('잘하고 있어요!');
@@ -1152,6 +1154,7 @@ function clearAll() {
   sfxTap();
   STATE.strokes = [];
   STATE.soloDone = [];
+  STATE.soloHintAt = 0;
   clearCanvas();
   if (STATE.step === 1) {
     STATE.traceIndex = 0;
@@ -1331,32 +1334,35 @@ function judgeTraceStroke() {
  *
  * 1·3·2 순으로 써도 3획은 '쓴 것'으로 세어 둔다. 그러지 않으면 뒤이어
  * 바르게 쓴 획까지 계속 어긋난 것으로 잡혀 힌트가 잔소리가 된다.
+ *
+ * 힌트를 띄웠으면 true 를 준다. 부르는 쪽이 그 말을 칭찬으로 덮지 않도록.
  */
 function judgeSoloStroke() {
   const data = currentGlyph();
   const stroke = STATE.strokes[STATE.strokes.length - 1];
-  if (!data || !stroke || STATE.demoPlaying) return;
+  if (!data || !stroke || STATE.demoPlaying) return false;
   const total = data.strokes.length;
   if (!STATE.soloDone.length) STATE.soloDone = new Array(total).fill(false);
 
   const want = STATE.soloDone.indexOf(false);
-  if (want < 0) return;                     // 다 썼으면 더 볼 것이 없다
+  if (want < 0) return false;               // 다 썼으면 더 볼 것이 없다
 
   let did = -1;
   for (let j = 0; j < total; j++) {
     if (!STATE.soloDone[j] && strokeFollows(stroke.points, data, j, true)) { did = j; break; }
   }
-  if (did < 0) return;                      // 어느 획도 아니면 그냥 둔다 (낙서할 자유)
+  if (did < 0) return false;                // 어느 획도 아니면 그냥 둔다 (낙서할 자유)
 
   STATE.soloDone[did] = true;
-  if (did === want) return;                 // 순서대로 잘 가고 있다
+  if (did === want) return false;           // 순서대로 잘 가고 있다
 
   STATE.soloClean = false;
   const now = Date.now();
-  if (now - STATE.soloHintAt < 2500) return;   // 잔소리가 되지 않게 텀을 둔다
+  if (now - STATE.soloHintAt < 2500) return false;   // 잔소리가 되지 않게 텀을 둔다
   STATE.soloHintAt = now;
   showEncourage('지금은 이 획이에요');
   flashStrokeHint(data, want);
+  return true;
 }
 
 // 획 하나를 잠깐 비춰 준다. 안내 레이어는 건드리지 않고 데모 레이어만 쓴다.
