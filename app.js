@@ -978,10 +978,6 @@ function renderStepTrace(svg, data) {
   label.textContent = (now + 1);
   svg.appendChild(label);
 }
-  });
-  label.textContent = (now + 1);
-  svg.appendChild(label);
-}
 
 // 획의 끝점 바깥에 화살촉 하나. 예전에는 띠 한가운데에 두세 개를 흩뿌렸는데,
 // 방향이 아니라 점선을 갉아먹은 얼룩으로 읽혔다.
@@ -1307,7 +1303,7 @@ function judgeTraceStroke() {
   }
   STATE.strokes.pop();
   redrawUserStrokes();
-  showEncourage(other > i ? '그 획은 조금 뒤에 써요' : '반짝이는 점에서 시작해요', '✨');
+  showEncourage(other > i ? '그 획은 조금 뒤에 써요' : '반짝이는 점에서 시작해요');
   const dot = document.querySelector('#guideSvg .start-dot.current');
   if (dot) { dot.classList.remove('current'); void dot.getBoundingClientRect(); dot.classList.add('current'); }
 
@@ -1322,7 +1318,8 @@ function setTraceTitle(data) {
   if (!el) return;
   const total = data.strokes.length;
   const where = partLabel();
-  el.innerHTML = `✏️ 점선을 따라 손가락으로 그려보세요${where}` +
+  // 문구는 다른 두 단계와 같은 결로 짧게 — #11 이 장식 이모지를 걷어냈다.
+  el.innerHTML = `점선을 따라가요${where}` +
     (total > 1 ? ` <span class="stroke-count">${Math.min(STATE.traceIndex + 1, total)}/${total}획</span>` : '');
 }
 
@@ -1332,7 +1329,7 @@ function checkTrace() {
   const data = currentGlyph();
   const left = data ? data.strokes.length - STATE.traceIndex : 0;
   if (left > 0) {
-    showEncourage(left + '획 더 남았어요', '✏️');
+    showEncourage(left + '획 더 남았어요');
     return;
   }
   if (partCount() > 1) {      // 단어는 글자마다 축하하지 않고 바로 넘어간다
