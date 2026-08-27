@@ -20,7 +20,7 @@ permissions:
 
 # 배포는 겹치지 않게 한 번에 하나씩. 진행 중인 배포를 취소하지는 않는다.
 concurrency:
-  group: pages
+  group: pages-deploy
   cancel-in-progress: false
 
 jobs:
