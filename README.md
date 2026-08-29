@@ -44,6 +44,19 @@ npx http-server -p 8080     # 서비스 워커를 시험하려면 file:// 이 �
 
 `main` 에 올라가면 GitHub Actions 가 GitHub Pages 로 배포합니다.
 
+### 안드로이드·iOS 앱으로 빌드하기
+
+같은 코드를 Capacitor 로 감싸 스토어에 올립니다. 웹과 갈라지는 부분은 `native.js` 한 곳에 모여 있습니다.
+
+```sh
+npm install
+npm run sync        # www/ 를 만들고 네이티브 프로젝트에 반영한다
+npm run android     # Android Studio 열기
+npm run ios         # Xcode 열기 (macOS 에서만, 먼저 ios/App 에서 pod install)
+```
+
+웹 파일을 고쳤으면 `npm run sync` 를 돌려야 앱에 반영됩니다. 스토어 제출에 필요한 것들은 [docs/스토어-등록.md](docs/스토어-등록.md) 에 정리해 두었습니다.
+
 버그 제보와 제안은 [이슈](https://github.com/hayanhuman-code/hangulssugi/issues)로 받습니다.
 
 ## 라이선스

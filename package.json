@@ -1,0 +1,26 @@
+{
+  "name": "hangulssugi",
+  "version": "1.0.0",
+  "private": true,
+  "description": "한글·숫자 쓰기 연습 — 다섯 살을 위한 획순 쓰기 앱",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "bundle": "node tools/bundle.mjs",
+    "build": "node tools/build-www.mjs",
+    "sync": "npm run build && cap sync",
+    "android": "npm run sync && cap open android",
+    "ios": "npm run sync && cap open ios"
+  },
+  "dependencies": {
+    "@capacitor-community/text-to-speech": "^6.1.0",
+    "@capacitor/android": "^7.6.8",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/cli": "^7.6.8",
+    "@capacitor/core": "^7.6.8",
+    "@capacitor/ios": "^7.6.8",
+    "@capacitor/preferences": "^7.0.4",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6"
+  }
+}

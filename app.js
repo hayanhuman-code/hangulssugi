@@ -142,7 +142,17 @@ function pickKoreanVoice() {
 }
 
 function speak(text, el) {
-  if (!text || !('speechSynthesis' in window)) return;
+  if (!text) return;
+  // 네이티브 앱에서는 플러그인이 읽는다. 안드로이드 WebView 에 Web Speech API
+  // 음성합성이 없어서, 여기서 갈라지지 않으면 안드로이드만 조용해진다.
+  if (window.Native && window.Native.active) {
+    if (el) {
+      el.classList.add('speaking');
+      later(() => el.classList.remove('speaking'), 1200);
+    }
+    if (window.Native.speak(text)) return;
+  }
+  if (!('speechSynthesis' in window)) return;
   const synth = window.speechSynthesis;
   synth.cancel();                       // 연타해도 겹쳐 읽지 않게
   const u = new SpeechSynthesisUtterance(text);
@@ -1564,6 +1574,7 @@ window.prevStep = prevStep;
 window.playStrokeDemo = playStrokeDemo;
 window.stopStrokeDemo = stopStrokeDemo;
 window.speakNumber = speakNumber;
+window.closeWordSheet = closeWordSheet;
 window.speak = speak;
 window.clearAll = clearAll;
 window.checkTrace = checkTrace;

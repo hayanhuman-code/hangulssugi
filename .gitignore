@@ -5,3 +5,11 @@ node_modules/
 .vscode/
 .idea/
 dist/
+
+# Capacitor
+www/
+android/app/src/main/assets/public/
+android/app/src/main/res/xml/config.xml
+ios/App/App/public/
+*.keystore
+*.jks

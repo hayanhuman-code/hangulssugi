@@ -1,0 +1,23 @@
+{
+  "appId": "or.hayanhuman.hangulssugi",
+  "appName": "한글·숫자 쓰기 연습",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "never"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "backgroundColor": "#FFF8EE",
+      "androidScaleType": "CENTER_CROP",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "backgroundColor": "#FFF8EE",
+      "style": "LIGHT"
+    }
+  }
+}

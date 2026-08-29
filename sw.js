@@ -18,6 +18,7 @@ const ASSETS = [
   'number-data.js',
   'hangul-data.js',
   'custom-words.js',
+  'native.js',
   'app.js',
   'manifest.webmanifest',
   'privacy.html',

@@ -705,11 +705,13 @@
 <script src="number-data.js"></script>
 <script src="hangul-data.js"></script>
 <script src="custom-words.js"></script>
+<script src="native.js"></script>
 <script src="app.js"></script>
 <script>
   // 서비스 워커는 오프라인 전용이다. 실패해도 앱은 그대로 돌아가야 하므로 조용히 넘어간다.
   // file:// 로 열었을 때(번들 한 개 파일을 카톡으로 받은 경우)는 등록 자체가 불가능하다.
-  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  if (!isNative && 'serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => { /* 오프라인 저장만 못 할 뿐 */ });
     });

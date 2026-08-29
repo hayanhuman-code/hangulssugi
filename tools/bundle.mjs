@@ -15,7 +15,7 @@ const out = resolve(root, process.argv[2] || 'dist/index.html');
 const read = (f) => readFileSync(resolve(root, f), 'utf8');
 
 let html = read('index.html');
-for (const src of ['number-data.js', 'hangul-data.js', 'custom-words.js', 'app.js']) {
+for (const src of ['number-data.js', 'hangul-data.js', 'custom-words.js', 'native.js', 'app.js']) {
   const tag = `<script src="${src}"></script>`;
   if (!html.includes(tag)) throw new Error(`index.html 에서 ${tag} 를 찾지 못했습니다`);
   // </script> 가 JS 문자열 안에 있으면 인라인 시 태그가 조기 종료된다.
