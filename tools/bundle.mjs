@@ -23,6 +23,22 @@ for (const src of ['number-data.js', 'hangul-data.js', 'custom-words.js', 'app.j
   html = html.replace(tag, `<script>\n${js}\n</script>`);
 }
 
+// 서체도 파일 안에 넣는다. 파일 하나만 주고받는 배포에서는 fonts/ 가 따라가지 않아
+// 서체가 통째로 사라지기 때문이다. 굵기당 200KB 라 base64 로 늘려도 감당할 만하다.
+for (const w of [500, 700, 800]) {
+  const url = `fonts/GothicA1-${w}.woff2`;
+  if (!html.includes(url)) throw new Error(`index.html 에서 ${url} 을 찾지 못했습니다`);
+  const b64 = readFileSync(resolve(root, url)).toString('base64');
+  html = html.replaceAll(`'${url}'`, `'data:font/woff2;base64,${b64}'`);
+}
+
+// 서비스 워커·manifest·아이콘은 file:// 에서 의미가 없다. 등록 코드는 프로토콜을
+// 보고 알아서 비켜서므로 두어도 되지만, 404 를 부르는 링크 태그는 걷어낸다.
+html = html
+  .replace(/^.*<link rel="manifest".*\n/m, '')
+  .replace(/^.*<link rel="icon".*\n/m, '')
+  .replace(/^.*<link rel="apple-touch-icon".*\n/m, '');
+
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, html);
 console.log(`${out} (${(Buffer.byteLength(html) / 1024).toFixed(1)} KB)`);

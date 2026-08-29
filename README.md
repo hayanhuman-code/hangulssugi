@@ -1,4 +1,60 @@
+# 한글·숫자 쓰기 연습
+
+다섯 살이 손가락으로 **숫자 0-20** 과 **한글 자음·모음·글자·단어**를 획순대로 따라 쓰는 연습 앱입니다.
+글자마다 ①모양 보기 → ②점선 따라쓰기 → ③혼자쓰기 세 단계를 거치고, 다 하면 별을 받습니다.
+
+**바로 쓰기 → https://hayanhuman-code.github.io/hangulssugi/**
+
+설치도 회원가입도 필요 없습니다. 링크를 열면 바로 시작합니다.
+
+## 앱처럼 쓰기
+
+브라우저에서 열어도 되지만, 홈 화면에 얹으면 주소창 없이 전체 화면으로 뜨고 **인터넷 없이도** 돌아갑니다.
+
+- **아이폰·아이패드 (Safari)** — 링크를 열고 공유 버튼 → `홈 화면에 추가`
+- **안드로이드 (Chrome)** — 링크를 열고 메뉴 → `앱 설치` 또는 `홈 화면에 추가`
+- **PC (Chrome·Edge)** — 주소창 오른쪽의 설치 아이콘
+
+한 번 열어 두면 그 뒤로는 차 안이든 지하철이든 신호 없이 그대로 씁니다.
+
+## 부모가 알아둘 것
+
+- **아무것도 수집하지 않습니다.** 계정도 서버도 광고도 분석 도구도 없습니다. 서체까지 앱 안에 들어 있어 외부로 나가는 통신이 아예 없습니다. → [개인정보 처리방침](privacy.html)
+- **진도와 직접 넣은 단어는 그 기기에만** 남습니다. 브라우저 데이터를 지우면 함께 사라지고, 기기끼리 동기화되지 않습니다.
+- **아이 이름을 넣을 수 있습니다.** `단어` 탭의 `단어 넣기` 카드에서 완성형 한글 네 글자까지 스무 개를 더할 수 있습니다. 조합 엔진이 획순·가이드·애니메이션을 자동으로 만들어 줍니다. 입력한 이름은 기기 밖으로 나가지 않습니다.
+- **가로 화면이 편합니다.** 태블릿 가로가 기준이고, 손가락 입력이 마우스보다 잘 맞습니다.
+
+## 고치고 싶다면
+
+빌드 도구가 없습니다. 저장소를 받아 `index.html` 을 열면 그대로 돌아갑니다.
+
+```sh
+git clone https://github.com/hayanhuman-code/hangulssugi.git
+cd hangulssugi
+npx http-server -p 8080     # 서비스 워커를 시험하려면 file:// 이 아니라 http:// 로 열어야 한다
+```
+
+- `index.html` — 화면 구조와 스타일 전부
+- `app.js` — 상태·캔버스·획순 판정·읽어주기
+- `hangul-data.js` / `number-data.js` — 글자별 획 좌표
+- `custom-words.js` — 부모가 넣는 단어와 한글 조합 엔진
+- `sw.js` — 오프라인 캐시 (**파일을 바꿨으면 `VERSION` 을 올려야 합니다**)
+- `fonts/` — 번들한 서체와 다시 만드는 법 ([fonts/README.md](fonts/README.md))
+- `tools/bundle.mjs` — 서체까지 넣어 HTML 한 개로 합치기 (`node tools/bundle.mjs`)
+
+`main` 에 올라가면 GitHub Actions 가 GitHub Pages 로 배포합니다.
+
+버그 제보와 제안은 [이슈](https://github.com/hayanhuman-code/hangulssugi/issues)로 받습니다.
+
+## 라이선스
+
+코드는 MIT, 번들한 Gothic A1 서체는 SIL Open Font License 1.1 입니다. [LICENSE](LICENSE) 참고.
+
+---
+
 # Handoff: Writing Practice (한글·숫자 쓰기 연습)
+
+> 아래는 화면을 다시 만들 때 쓰는 설계 문서입니다. 앱을 쓰기만 할 분은 여기까지 안 읽어도 됩니다.
 
 ## Overview
 A touch-first learning app for **5-year-old children** to practice writing numbers 0–20 and Hangul — 19 consonants, 21 vowels, 15 syllables and 36 words. Every item follows the same **3-step learning flow**: (1) See the shape and (for numbers) count real objects, (2) Trace along a dotted guide with a finger, (3) Write freely with only a faint guide. Successful completion awards star stickers with sound + confetti feedback, and progress is persisted per item.

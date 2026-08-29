@@ -4,10 +4,36 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>한글·숫자 쓰기 연습</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&display=swap" rel="stylesheet">
+<meta name="description" content="다섯 살이 손가락으로 숫자 0-20 과 한글 자음·모음·글자·단어를 획순대로 따라 쓰는 연습 앱. 설치도 로그인도 필요 없습니다.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#FFF8EE">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- iOS 는 manifest 의 display/name 을 읽지 않는다. 홈 화면에서 주소창 없이 뜨게 하려면 아래 둘이 필요하다. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="쓰기 연습">
 <style>
+  /* ---------- 서체 ----------
+     Gothic A1 (SIL Open Font License 1.1) 을 저장소에 직접 담는다. 구글 폰트 CDN 을
+     쓰면 (1) 비행기 모드·지하철에서 서체가 깨지고 (2) 아이가 앱을 열 때마다 구글 서버로
+     접속 기록이 나간다. 어린이 앱에서 둘 다 받아들일 수 없다.
+     한글 11,172 자를 모두 담고도 굵기당 200KB 남짓이다 — 부모가 아이 이름을 직접
+     넣는 기능이 있어 상용 2,350 자로 줄이면 '뷁' 같은 글자에서 서체가 어긋난다.
+     만드는 법은 fonts/README.md 참고. */
+  @font-face {
+    font-family: 'Gothic A1'; font-style: normal; font-weight: 500; font-display: swap;
+    src: url('fonts/GothicA1-500.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Gothic A1'; font-style: normal; font-weight: 700; font-display: swap;
+    src: url('fonts/GothicA1-700.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Gothic A1'; font-style: normal; font-weight: 800; font-display: swap;
+    src: url('fonts/GothicA1-800.woff2') format('woff2');
+  }
+
   /* ---------- 디자인 토큰 (docs/화면시안-v2.dc.html) ----------
      바탕은 크림 단색이다. v1 의 무지개 그라데이션은 흰 카드의 경계를 지우고,
      같은 카드를 위치에 따라 분홍빛·푸른빛으로 보이게 만들었다. */
@@ -680,5 +706,14 @@
 <script src="hangul-data.js"></script>
 <script src="custom-words.js"></script>
 <script src="app.js"></script>
+<script>
+  // 서비스 워커는 오프라인 전용이다. 실패해도 앱은 그대로 돌아가야 하므로 조용히 넘어간다.
+  // file:// 로 열었을 때(번들 한 개 파일을 카톡으로 받은 경우)는 등록 자체가 불가능하다.
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => { /* 오프라인 저장만 못 할 뿐 */ });
+    });
+  }
+</script>
 </body>
 </html>
