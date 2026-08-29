@@ -4,10 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>한글·숫자 쓰기 연습</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="fonts/NanumBarunGothicYetHangul-subset.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  /* 보여 주는 글자는 따라 쓸 획과 같은 뼈대여야 한다. hangul-data.js 의 초성 폭
+     비율(CHO_W)을 이 폰트에서 뽑았으므로, 화면에 뜨는 글자도 같은 폰트로 맞춘다.
+     구글 폰트에서 받아오지 않고 저장소에 넣어 둔다 — 이 앱은 오프라인이 원칙이고,
+     데이터 없는 태블릿에서 폰트만 시스템 기본으로 떨어지면 획과 어긋난다. */
+  @font-face {
+    font-family: 'NanumBarunGothic YetHangul';
+    src: url('fonts/NanumBarunGothicYetHangul-subset.woff2') format('woff2');
+    /* 이 폰트는 Regular 한 벌뿐이다. 400 으로만 선언해 두면 굵기 700·800 자리에서
+       브라우저가 획을 부풀려 굵게 만든다(합성 볼드). 400 900 으로 선언하면 합성이
+       막혀 화면 글자가 전부 가늘어지고, 따라 쓸 획(굵기 24)과 눈에 띄게 어긋난다. */
+    font-weight: 400;
+    font-display: swap;
+  }
   /* ---------- 디자인 토큰 (docs/화면시안-v2.dc.html) ----------
      바탕은 크림 단색이다. v1 의 무지개 그라데이션은 흰 카드의 경계를 지우고,
      같은 카드를 위치에 따라 분홍빛·푸른빛으로 보이게 만들었다. */
@@ -45,7 +56,7 @@
   html, body {
     margin: 0; padding: 0;
     /* 아이가 처음 배우는 글자라 손글씨풍이 아닌 기본 서체(고딕)로 보여 준다 */
-    font-family: 'Gothic A1', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    font-family: 'NanumBarunGothic YetHangul', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
     font-weight: 700;
     overflow: hidden;
     /* 모바일 브라우저의 100vh 는 주소창·툴바가 숨겨진 상태의 높이다. 실제로 보이는
