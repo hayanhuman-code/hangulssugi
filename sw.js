@@ -7,7 +7,7 @@
 //
 // 고칠 때: 파일을 바꾸면 반드시 VERSION 을 올린다. 안 올리면 이미 설치한
 // 사람에게는 옛 파일이 계속 나간다.
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `ssugi-${VERSION}`;
 
 // 경로는 모두 상대경로다. GitHub Pages 는 저장소 이름이 붙은 하위 경로

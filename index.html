@@ -520,7 +520,12 @@
   /* 반응형: 폰 — 가로폭이 좁을 때.
      여기서 줄이는 값은 app.js 의 PAGE_SHAPE_NARROW 와 짝이다(같은 560px 기준).
      열 수만 줄이고 쪽당 개수를 그대로 두면 아래 줄이 화면 밖으로 밀린다. */
-  @media (max-width: 560px) {
+  /* 홈도 폭뿐 아니라 '높이'가 모자랄 때 줄여야 한다.
+     폰을 가로로 들면 844x390 이다. 폭이 560 을 넘어서 이 분기에 걸리지 않았고,
+     머리말 64px·탭 72px·점 40px 이 원래 크기 그대로 남아 390px 높이의 대부분을
+     먹었다. 카드에 남은 높이가 한 줄치뿐이라 별과 이름이 카드 밖으로 잘렸다.
+     아래 연습 화면 분기와 같은 조건을 쓴다. */
+  @media (max-width: 560px), (max-height: 560px) {
     .home { padding: 16px 14px 10px; }
     .home-header { margin-bottom: 12px; }
     .home-title { font-size: 22px; letter-spacing: -0.6px; }
@@ -545,6 +550,10 @@
     .number-card .card-stars { top: 5px; right: 6px; gap: 1px; }
     .number-card .card-lock { bottom: 5px; right: 6px; }
     .number-card .word-emoji { font-size: 26px; }
+    /* 단어 카드의 글자 크기는 .grid-page.cols-4 .number-card .num.word-text 에서
+       38px 로 온다. 위의 .number-card .num 보다 선택자가 구체적이라 그 값이 이긴다.
+       같은 구체성으로 다시 눌러야 폰 가로에서 카드 밖으로 넘치지 않는다. */
+    .grid-page.cols-4 .number-card .num.word-text { font-size: 26px; }
     }
 
   /* 연습 화면은 폭뿐 아니라 '높이'가 모자랄 때도 줄여야 한다.
@@ -581,6 +590,19 @@
     .btn-icon { width: 56px; height: 56px; font-size: 10px; gap: 1px; }
     .btn-icon .ico-svg { width: 22px; height: 22px; }
     .btn-cta { height: 56px; font-size: 18px; padding: 0 14px; min-width: 0; }
+  }
+
+  /* 폰 세로에서는 탭 다섯 개가 한 줄에 들어가지 않는다.
+     390px 폭이면 탭 하나에 68px 이 돌아가는데, 칩(28px)+글자 두 자(32px)+여백만
+     73px 이다. nowrap 이라 접히지도 않고 글자가 알약 밖으로 삐져나왔다.
+     글자를 더 줄이면 다섯 살이 못 읽고, 칩을 빼면 아직 글을 못 읽는 아이가
+     '123'·'ㄱㄴ' 같은 표시를 잃는다. 그래서 줄이는 대신 두 줄로 접는다 —
+     세로 화면에는 높이가 남고, 손가락에 닿는 면적은 오히려 넓어진다.
+     가로 스크롤은 쓰지 않는다. 네 살은 밀려난 탭을 찾아내지 못한다. */
+  @media (max-width: 460px) {
+    .category-tabs { flex-wrap: wrap; }
+    /* 3 + 2 로 앉는다. 아랫줄 둘은 남는 폭을 나눠 가져 한 줄처럼 보인다. */
+    .category-tab { flex: 1 1 28%; }
   }
 
   /* 아이폰 SE 같은 375px 폭에는 단계 칩 3개의 라벨이 다 들어가지 않는다.
