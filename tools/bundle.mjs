@@ -23,6 +23,18 @@ for (const src of ['number-data.js', 'hangul-data.js', 'custom-words.js', 'app.j
   html = html.replace(tag, `<script>\n${js}\n</script>`);
 }
 
+// 폰트도 파일 안에 넣는다. 번들의 존재 이유가 "파일 하나만 주고받기" 라, 곁의
+// woff2 를 따로 챙기지 않으면 받은 쪽에서는 글자가 시스템 기본 서체로 떨어진다.
+{
+  const url = 'fonts/NanumBarunGothicYetHangul-subset.woff2';
+  const tag = `url('${url}')`;
+  if (!html.includes(tag)) throw new Error(`index.html 에서 ${tag} 를 찾지 못했습니다`);
+  const b64 = readFileSync(resolve(root, url)).toString('base64');
+  html = html.replace(tag, `url(data:font/woff2;base64,${b64})`);
+  // 인라인한 뒤에는 preload 가 가리킬 파일이 없다.
+  html = html.replace(/^<link rel="preload" href="fonts\/[^\n]*\n/m, '');
+}
+
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, html);
 console.log(`${out} (${(Buffer.byteLength(html) / 1024).toFixed(1)} KB)`);

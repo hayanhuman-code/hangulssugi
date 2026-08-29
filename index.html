@@ -4,10 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>한글·숫자 쓰기 연습</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="fonts/NanumBarunGothicYetHangul-subset.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  /* 보여 주는 글자는 따라 쓸 획과 같은 뼈대여야 한다. hangul-data.js 의 초성 폭
+     비율(CHO_W)을 이 폰트에서 뽑았으므로, 화면에 뜨는 글자도 같은 폰트로 맞춘다.
+     구글 폰트에서 받아오지 않고 저장소에 넣어 둔다 — 이 앱은 오프라인이 원칙이고,
+     데이터 없는 태블릿에서 폰트만 시스템 기본으로 떨어지면 획과 어긋난다. */
+  @font-face {
+    font-family: 'NanumBarunGothic YetHangul';
+    src: url('fonts/NanumBarunGothicYetHangul-subset.woff2') format('woff2');
+    /* 이 폰트는 Regular 한 벌뿐이다. 400 으로만 선언해 두면 굵기 700·800 자리에서
+       브라우저가 획을 부풀려 굵게 만든다(합성 볼드). 400 900 으로 선언하면 합성이
+       막혀 화면 글자가 전부 가늘어지고, 따라 쓸 획(굵기 24)과 눈에 띄게 어긋난다. */
+    font-weight: 400;
+    font-display: swap;
+  }
   /* ---------- 디자인 토큰 (docs/화면시안-v2.dc.html) ----------
      바탕은 크림 단색이다. v1 의 무지개 그라데이션은 흰 카드의 경계를 지우고,
      같은 카드를 위치에 따라 분홍빛·푸른빛으로 보이게 만들었다. */
@@ -45,7 +56,7 @@
   html, body {
     margin: 0; padding: 0;
     /* 아이가 처음 배우는 글자라 손글씨풍이 아닌 기본 서체(고딕)로 보여 준다 */
-    font-family: 'Gothic A1', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    font-family: 'NanumBarunGothic YetHangul', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
     font-weight: 700;
     overflow: hidden;
     /* 모바일 브라우저의 100vh 는 주소창·툴바가 숨겨진 상태의 높이다. 실제로 보이는
@@ -222,15 +233,19 @@
   .sheet-empty { font-size: 16px; font-weight: 500; color: var(--ink-weak); padding: 4px 2px; }
 
   /* ---------- 연습 화면 ---------- */
+  /* 글자는 정사각형이라 따라쓰는 칸의 가로·세로 중 작은 쪽이 크기를 정한다.
+     가로 화면에서는 칸이 1016x540 처럼 폭만 남아돌아, 세로를 먹는 군더더기를
+     걷어내는 것이 곧 글자를 키우는 일이다. 다만 아이 손가락이 닿는 것들은
+     44px 아래로 내리지 않는다. */
   .practice {
-    height: 100%; display: none; flex-direction: column; padding: 36px;
+    height: 100%; display: none; flex-direction: column; padding: 24px;
   }
   .practice.active { display: flex; }
   .practice-header {
-    display: flex; align-items: center; gap: 12px; height: 88px; margin-bottom: 24px;
+    display: flex; align-items: center; gap: 12px; height: 72px; margin-bottom: 16px;
   }
   .btn-back {
-    width: 88px; height: 88px; flex: 0 0 auto;
+    width: 72px; height: 72px; flex: 0 0 auto;
     background: var(--card); border: none; border-radius: 999px;
     cursor: pointer; color: var(--ink-mid);
     box-shadow: var(--sh-card);
@@ -257,11 +272,20 @@
   .step-dot.active .step-num { background: rgba(255,255,255,0.30); }
   .step-dot .step-num .ico-svg { color: inherit; }
 
-  /* 좌 332 / 우 나머지 — 시안의 332 : 748 */
+  /* 좌 332 / 우 나머지 — 시안의 332 : 748.
+     버튼 바는 캔버스 판 안이 아니라 본문 격자의 칸이다. 넓은 화면에서는
+     왼쪽 아래(정보 패널 밑)로 옮겨서, 캔버스가 세로를 통째로 쓰게 한다. */
   .practice-body {
-    flex: 1; display: grid; grid-template-columns: 332px 1fr; gap: 20px;
+    flex: 1; display: grid;
+    grid-template-columns: 332px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: "info canvas" "info bar";
+    gap: 20px;
     min-height: 0;
   }
+  .info-panel { grid-area: info; }
+  .canvas-panel { grid-area: canvas; }
+  .action-bar { grid-area: bar; }
 
   /* 왼쪽: 정보 패널 — 큰 카드 한 장이 아니라 내용에 맞춰 붙는 카드 2장 */
   .info-panel { display: flex; flex-direction: column; gap: 16px; min-height: 0; }
@@ -327,8 +351,8 @@
   /* 오른쪽: 그리기 영역 */
   .canvas-panel { display: flex; flex-direction: column; min-height: 0; }
   .canvas-title {
-    height: 44px; flex: 0 0 auto;
-    font-size: 24px; color: var(--ink-mid);
+    height: 36px; flex: 0 0 auto;
+    font-size: 22px; color: var(--ink-mid);
     display: flex; align-items: center; justify-content: center;
   }
   .canvas-wrapper {
@@ -391,7 +415,7 @@
   /* 하단 버튼 바 — 세 단계 모두 자리가 같다. 없는 버튼은 자리를 비워 두고
      뒤 버튼이 당겨오지 않는다. */
   .action-bar {
-    height: 112px; flex: 0 0 auto; margin-top: 20px;
+    height: 88px; flex: 0 0 auto;
     display: flex; gap: 16px; align-items: center;
   }
   .btn {
@@ -412,14 +436,16 @@
   /* 아이콘 버튼 112 × 112 — 만 4세 손가락 기준 */
   .btn-icon {
     flex-direction: column; gap: 4px;
-    width: 112px; height: 112px; padding: 0;
+    width: 88px; height: 88px; padding: 0;
     border-radius: var(--r-ico);
-    font-size: 18px;
+    font-size: 16px;
   }
-  .btn-slot { width: 112px; height: 112px; flex: 0 0 auto; }
+  /* 좌우 균형용 빈 자리. 폭만 차지하면 되는데 높이를 주면 폰에서 바(56px)보다
+     길어져 화면 아래로 삐져나간다. */
+  .btn-slot { width: 88px; height: 0; flex: 0 0 auto; }
   .action-spacer { flex: 1; }
   .btn-cta {
-    height: 88px; padding: 0 44px; font-size: 32px;
+    height: 76px; padding: 0 32px; font-size: 28px;
     background: var(--step-now); color: #fff;
     box-shadow: 0 6px 0 rgba(45,110,76,.55);
   }
@@ -526,9 +552,10 @@
      원래 크기가 그대로 적용돼 버튼과 머리말이 화면 아래로 밀린다. */
   @media (max-width: 560px), (max-height: 560px) {
     /* 연습 화면 — 좁은 폭에 맞춰 머리말과 버튼을 줄인다 */
-    .practice { padding: 10px 12px; }
-    .practice-header { height: 56px; margin-bottom: 10px; gap: 6px; }
-    .btn-back { width: 56px; height: 56px; }
+    .practice { padding: 8px 10px; }
+    .practice-header { height: 48px; margin-bottom: 8px; gap: 6px; }
+    .btn-back { width: 48px; height: 48px; }
+    .canvas-title { height: 28px; font-size: 16px; }
     .header-spacer { display: none; }
     .step-indicator { gap: 5px; min-width: 0; }
     .step-dot { height: 44px; padding: 0 7px; font-size: 13px; gap: 4px; min-width: 0; overflow: hidden; }
@@ -549,7 +576,7 @@
     .sound-btn { width: 56px; height: 56px; flex: 0 0 auto; font-size: 10px; gap: 0; }
     .sound-btn .ico-svg { width: 22px; height: 22px; }
 
-    .action-bar { height: 64px; margin-top: 8px; gap: 6px; }
+    .action-bar { height: 56px; gap: 6px; }
     .action-bar .btn { min-width: 0; }
     .btn-slot { width: 0; flex: 0 0 auto; }
     .btn-icon { width: 56px; height: 56px; font-size: 10px; gap: 1px; }
@@ -576,7 +603,11 @@
      실제로 폰의 큰 글자(34px)가 60px 로, 소리 버튼(56px)이 112px 로 되살아나
      캔버스를 129px 까지 밀어냈다. */
   @media (max-aspect-ratio: 1/1) {
-    .practice-body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    .practice-body {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      grid-template-areas: "info" "canvas" "bar";
+    }
     /* 정보 패널이 가로로 눕으면 카드는 남는 폭을 나눠 가져야 한다.
        내용 폭 그대로 두면 긴 설명 한 줄이 소리 듣기 버튼을 화면 밖으로 밀어낸다. */
     .info-panel { flex-direction: row; align-items: stretch; min-width: 0; }
@@ -599,19 +630,39 @@
     .category-tab .tab-icon { min-width: 34px; height: 34px; padding: 0 6px; font-size: 15px; border-radius: 12px; }
     .grid-page { gap: 14px; }
 
-    .practice { padding: 20px; }
-    .practice-header { height: 72px; margin-bottom: 16px; }
-    .btn-back { width: 72px; height: 72px; }
+    .practice { padding: 14px; }
+    /* 세 줄(정보·캔버스·버튼) 사이 간격까지 20px 이면 캔버스에서 두 번 깎인다 */
+    .practice-body { row-gap: 12px; }
+    .practice-header { height: 64px; margin-bottom: 12px; }
+    .btn-back { width: 64px; height: 64px; }
     .header-spacer { display: none; }
     .step-indicator { gap: 8px; min-width: 0; }
     .step-dot { height: 60px; padding: 0 12px; font-size: 18px; gap: 7px; min-width: 0; overflow: hidden; }
     .step-dot .step-num { width: 30px; height: 30px; font-size: 16px; }
 
-    .action-bar { height: 92px; margin-top: 14px; gap: 10px; }
-    .btn-icon, .btn-slot { width: 88px; height: 88px; }
-    .btn-icon { font-size: 15px; }
-    .btn-icon .ico-svg { width: 36px; height: 36px; }
-    .btn-cta { height: 76px; font-size: 24px; padding: 0 24px; min-width: 0; }
+    .action-bar { height: 80px; gap: 10px; }
+    .btn-icon { width: 76px; height: 76px; }
+    .btn-slot { width: 76px; }
+    .btn-icon { font-size: 14px; }
+    .btn-icon .ico-svg { width: 32px; height: 32px; }
+    .btn-cta { height: 68px; font-size: 24px; padding: 0 24px; min-width: 0; }
+  }
+
+  /* 가로로 넉넉한 화면 — 버튼 바를 왼쪽 아래로 옮긴다.
+     여기서는 따라쓰는 칸이 폭이 아니라 세로에 걸린다(데스크톱 1040x626).
+     남아도는 폭 쪽에 버튼을 세워 두면 칸이 본문 높이를 통째로 쓴다.
+     세로가 561px 미만인 누운 폰은 제외한다 — 거기선 왼쪽 칸이 정보 패널로
+     이미 꽉 차서, 버튼까지 넣으면 넘친다. 그 화면은 지금처럼 칸 아래에 둔다.
+     폰 분기(560px 이하)와 세로 분기(1/1 이하)는 이 조건과 겹치지 않지만,
+     겹치더라도 이 블록이 이기도록 맨 뒤에 둔다. */
+  @media (min-aspect-ratio: 1/1) and (min-height: 561px) {
+    .practice-body { grid-template-areas: "info canvas" "bar canvas"; }
+    /* 332px 칸에 버튼 셋이 다 들어가야 한다. 좌우 균형용 빈 자리와 밀대는
+       빼고, 아이콘 버튼을 줄이고, 남는 폭을 전부 CTA 에 준다. */
+    .action-bar .btn-slot, .action-bar .action-spacer { display: none; }
+    .btn-icon { width: 64px; height: 64px; font-size: 13px; gap: 2px; }
+    .btn-icon .ico-svg { width: 28px; height: 28px; }
+    .btn-cta { flex: 1 1 0; min-width: 0; font-size: 24px; padding: 0 12px; }
   }
 </style>
 </head>
@@ -670,8 +721,9 @@
           <svg class="demo-svg" id="demoSvg" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
           <div class="stamp" id="stamp" aria-hidden="true"></div>
         </div>
-        <div class="action-bar" id="actionBar"></div>
       </div>
+
+      <div class="action-bar" id="actionBar"></div>
     </div>
   </div>
 </div>
