@@ -1272,7 +1272,20 @@ function strokeFollows(user, data, i, loose) {
 
   if (Math.hypot(u0.x - gs.x, u0.y - gs.y) > startTol) return false;
 
-  const closed = Math.hypot(gs.x - ge.x, gs.y - ge.y) <= startTol;
+  /*
+   * 고리인지(ㅇ·ㅎ의 원, 숫자 0·8) 그냥 짧은 획인지 가른다. 두 끝이 붙어
+   * 있다는 것만으로는 모자랐다 — ㅎ·ㅊ의 윗꼭지는 시작점 허용 범위 안에서
+   * 끝날 만큼 짧아 고리로 오해받았고, 곧은 획의 회전 부호는 0 이라
+   * 손으로 그은 획(±1)과 영영 맞지 않아 제대로 써도 늘 퇴짜였다.
+   *
+   * 고리는 시작점에서 멀리 나갔다가 돌아온다 — 가장 멀리 간 거리가 두 끝
+   * 사이보다 훨씬 크다. 곧은 획은 가장 먼 점이 곧 끝점이라 둘이 같다.
+   * 길이로 재지 않고 이 비(比)로 가리므로 획이 작든 크든 똑같이 맞는다.
+   */
+  let far = 0;
+  g.pts.forEach(p => { far = Math.max(far, Math.hypot(p.x - gs.x, p.y - gs.y)); });
+  const ends = Math.hypot(gs.x - ge.x, gs.y - ge.y);
+  const closed = ends <= startTol && far > ends * 2;
   if (closed) {
     if (windingSign(user) !== windingSign(g.pts)) return false;
   } else if (Math.hypot(u1.x - ge.x, u1.y - ge.y) > Math.hypot(u1.x - gs.x, u1.y - gs.y)) {
