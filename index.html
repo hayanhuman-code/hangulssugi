@@ -379,6 +379,16 @@
      배지와 화살표는 띠 안이 아니라 획의 시작점·끝점 바깥에 놓는다. 획 위에 얹으면
      아이가 이제부터 그으려는 바로 그 부분을 가린다. */
   .stroke-outline { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  /* 카드·정보 패널의 큰 글자도 획 데이터로 그린다 — 글자처럼 font-size 를 따른다.
+     다만 낱말은 글자 수만큼 옆으로 길다. 글자였을 땐 font-size 가 줄여 줬지만
+     그림은 제 비율을 고집해 좁은 폰에서 카드 밖으로 나갔다('강아지' 320px 폰에서
+     52px). 자리보다 넓으면 비율을 지킨 채 줄어들게 한다. */
+  .glyph-art { display: block; overflow: visible; max-width: 100%; height: auto; }
+  .number-card .num .glyph-art { margin: 0 auto; }
+  .info-num .glyph-art { margin: 0 auto; }
+  /* 낱말 카드는 뜻 그림과 나란한 칸이다 — 줄어들 수 있어야 max-width 가 듣는다 */
+  .number-card .num.word-text { min-width: 0; }
+  .info-num { max-width: 100%; }
   .guide-band { opacity: 0.16; }
   .guide-dots {
     stroke-linecap: butt;

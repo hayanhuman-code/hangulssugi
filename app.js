@@ -399,10 +399,11 @@ function buildCard(data, index, list) {
     : `<div class="card-lock" aria-hidden="true">${icon('lock', 22)}</div>`;
 
   // 단어는 뜻 그림을 함께 보여 주고, 나머지는 글자와 읽는 법을 보여 준다.
+  const art = glyphSvgHtml(data) || data.id;
   const body = isWord
     ? `<div class="word-emoji" style="background:${open ? data.bgColor : 'transparent'}" aria-hidden="true">${data.emoji || ''}</div>
-       <div class="num word-text" style="color:${data.color}" aria-hidden="true">${data.id}</div>`
-    : `<div class="num" style="color:${data.color}" aria-hidden="true">${data.id}</div>
+       <div class="num word-text" style="color:${data.color}" aria-hidden="true">${art}</div>`
+    : `<div class="num" style="color:${data.color}" aria-hidden="true">${art}</div>
        <div class="ko" aria-hidden="true">${data.ko}</div>`;
 
   card.innerHTML = corner + body;
@@ -618,7 +619,8 @@ function goHome() {
 // ---------- 정보 패널 ----------
 function renderInfoPanel(data) {
   const numEl = document.getElementById('infoNum');
-  numEl.textContent = data.id;
+  const art = glyphSvgHtml(data);
+  if (art) numEl.innerHTML = art; else numEl.textContent = data.id;
   numEl.style.color = data.color;
   // 두 글자가 넘는 단어는 큰 글자 칸에 다 들어가지 않는다
   numEl.classList.toggle('compact', data.id.length > 1);
@@ -807,6 +809,37 @@ function prevStep() {
 
 // ---------- 1단계: 보기 (정적 숫자 + 획순 데모) ----------
 function strokeW(data) { return data.strokeWidth || 30; }
+
+/*
+ * 카드와 정보 패널의 큰 글자를 획 데이터로 그린다.
+ *
+ * 예전엔 그냥 글자를 찍어 화면 폰트가 그렸다. 그런데 우리가 가르치는 모양은
+ * 폰트와 다른 데가 있다 — 1 은 윗갈고리 없이 곧은 세로 한 획이고, ㅎ·ㅊ 의
+ * 윗꼭지는 가로획이다. 카드에서 갈고리 달린 1 을 보고 칸에서는 곧은 1 을
+ * 따라 쓰게 되니, 아이 눈에는 고친 것이 반영되지 않은 것처럼 보였다.
+ * 보여 주는 글자와 쓰는 획은 같은 곳(획 데이터)에서 나와야 한다.
+ *
+ * 크기는 글자처럼 em 으로 잡고 폭은 글자 비율대로 둔다. 그래야 font-size 로
+ * 크기를 정해 둔 기존 CSS(카드 44px, 정보 패널 96px, 좁은 화면 30px…)가
+ * 그대로 듣는다. 색은 currentColor 라 잠금 카드의 흐림도 예전 그대로다.
+ */
+const GLYPH_ART_EM = 1.16;   // 셀 한 변 = 글자 크기의 몇 배로 볼지
+function glyphSvgHtml(data) {
+  if (!data || !data.strokes || !data.strokes.length) return '';
+  const sw = strokeW(data);
+  // 획은 200 셀 안에 끝까지 들어가 있고 둥근 끝만 굵기의 반만큼 비어져 나온다.
+  const vb = padViewBox(data.viewBox || '0 0 200 200', sw * 0.5);
+  const n = vb.split(/\s+/).map(Number);
+  const ratio = n[3] > 0 ? n[2] / n[3] : 1;
+  // 셀에는 글자가 쓰지 않는 여백이 있어 1em 으로 두면 폰트로 찍던 때보다 작아
+  // 보인다. 카드가 예전과 같은 무게로 보이도록 셀 높이를 조금 키워 잡는다.
+  const em = GLYPH_ART_EM;
+  const paths = data.strokes.map(st =>
+    `<path d="${st.d}" class="stroke-outline" stroke="currentColor" stroke-width="${sw}"/>`).join('');
+  return `<svg class="glyph-art" viewBox="${vb}" width="${round2(ratio * em)}em" height="${em}em"`
+    + ` preserveAspectRatio="xMidYMid meet" aria-hidden="true" focusable="false">${paths}</svg>`;
+}
+function round2(v) { return Math.round(v * 100) / 100; }
 
 // 점선 가이드 — 시안의 '굵기 5 · dash 4 / gap 16'(띠 44 기준)을 획 굵기에 대한 비율로 옮겼다.
 const DOT_WIDTH = 0.12;
