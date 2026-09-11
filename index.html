@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>한글·숫자 쓰기 연습</title>
+<title>한글·숫자·알파벳 쓰기 연습</title>
 <link rel="preload" href="fonts/NanumBarunGothicYetHangul-subset.woff2" as="font" type="font/woff2" crossorigin>
 <style>
   /* 보여 주는 글자는 따라 쓸 획과 같은 뼈대여야 한다. hangul-data.js 의 초성 폭
@@ -98,16 +98,17 @@
   .category-tabs { display: flex; gap: 12px; margin-bottom: 20px; }
   .category-tab {
     flex: 1; min-width: 0; height: 72px; border: none; border-radius: 999px; cursor: pointer;
-    font-family: inherit; font-weight: 700; font-size: 30px;
-    display: flex; align-items: center; justify-content: center; gap: 12px;
+    font-family: inherit; font-weight: 700; font-size: 26px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 0 6px;
     box-shadow: 0 5px 0 rgba(90,74,56,.10);
     /* '숫자'가 '숫/자'로 접히면 탭이 두 줄이 된다. 폭이 모자라면 접는 게 아니라
        글자를 줄여야 한다 — 줄이는 값은 아래 화면별 분기에 있다. */
     white-space: nowrap;
   }
   .category-tab .tab-icon {
-    min-width: 44px; height: 44px; padding: 0 8px; border-radius: 16px; background: #fff;
-    font-size: 22px; display: flex; align-items: center; justify-content: center;
+    min-width: 40px; height: 40px; padding: 0 6px; border-radius: 14px; background: #fff;
+    font-size: 18px; display: flex; align-items: center; justify-content: center;
     white-space: nowrap; flex: 0 0 auto;
   }
   .category-tab.on { box-shadow: 0 6px 0 rgba(90,74,56,.18); }
@@ -330,6 +331,11 @@
     width: 100%; text-align: center; margin-top: 8px;
     font-size: 24px; color: var(--ink-mid);
   }
+  /* 알파벳은 대표 단어 아래 우리말 뜻을 한 줄 더 붙인다 (Apple / 사과).
+     em 으로 두어 화면별 글자 크기 분기를 따라 함께 줄어든다. */
+  .info-objects .obj-caption .cap-sub {
+    display: block; margin-top: 2px; font-size: .8em; color: var(--ink-weak);
+  }
   .info-objects.zero { color: var(--ink-weak); font-size: 20px; }
   @keyframes bounce-in {
     0% { transform: scale(0) rotate(-180deg); opacity: 0; }
@@ -536,9 +542,12 @@
     .home-title { font-size: 22px; letter-spacing: -0.6px; }
     .stars-collected { height: 44px; padding: 0 14px; font-size: 20px; gap: 5px; }
 
-    .category-tabs { gap: 6px; margin-bottom: 12px; }
+    /* 탭이 일곱이라 한 줄에 넣으면 탭 하나가 네 살 손가락보다 좁아진다.
+       두 줄(4+3)로 접는다 — 카드 줄 수는 rowsFor() 가 남은 높이에서 다시 잡는다. */
+    .category-tabs { gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
     .category-tab {
-      height: 52px; font-size: 16px; gap: 5px; padding: 0 4px;
+      flex: 1 1 calc(25% - 5px);
+      height: 46px; font-size: 15px; gap: 4px; padding: 0 4px;
       white-space: nowrap; min-width: 0;
     }
     .category-tab .tab-icon {
@@ -603,6 +612,24 @@
     .step-dot:not(.active) > span:not(.step-num) { display: none; }
   }
 
+  /* 탭 일곱이 한 줄에 들어가지 않는 구간 (가로로 누운 폰 · 작은 창).
+     폰 분기(560px 이하)는 두 줄로 접어 해결하지만, 여기서는 접을 수 없다 —
+     가로로 누운 폰은 높이가 390px 뿐이라 탭 한 줄을 더 얹으면 카드가 설 자리가
+     없다. 그래서 접는 대신 줄인다. 세로 화면은 아래 태블릿 세로 블록이 다시 잡는다. */
+  @media (min-width: 561px) and (max-width: 1023px) {
+    .category-tabs { gap: 5px; }
+    .category-tab { height: 62px; font-size: 18px; gap: 5px; padding: 0 4px; }
+    .category-tab .tab-icon {
+      min-width: 30px; height: 30px; padding: 0 4px; font-size: 14px; border-radius: 11px;
+    }
+  }
+
+  /* 더 좁으면 글자를 더 줄이는 대신 아이콘 칩을 뺀다. 15px 이하로 내려간 이름표는
+     네 살이 읽지 못한다 — 이름이 먼저고, 칩은 색과 함께 거드는 표지다. */
+  @media (min-width: 561px) and (max-width: 780px) and (min-aspect-ratio: 1/1) {
+    .category-tab .tab-icon { display: none; }
+  }
+
   /* 반응형: 세로로 세운 화면 (태블릿 세로 포함).
      본문을 한 줄로 세우는 것만으로는 모자란다. 폭이 절반으로 줄었는데 머리말·버튼·
      정보 패널이 가로 기준 크기 그대로면 오른쪽으로 밀려 잘린다 — 600px 폭에서
@@ -636,8 +663,8 @@
     .home { padding: 24px 20px 12px; }
     .home-title { font-size: 28px; }
     .category-tabs { gap: 8px; }
-    .category-tab { height: 62px; font-size: 20px; gap: 7px; padding: 0 6px; }
-    .category-tab .tab-icon { min-width: 34px; height: 34px; padding: 0 6px; font-size: 15px; border-radius: 12px; }
+    .category-tab { height: 62px; font-size: 17px; gap: 4px; padding: 0 4px; }
+    .category-tab .tab-icon { min-width: 28px; height: 28px; padding: 0 4px; font-size: 13px; border-radius: 10px; }
     .grid-page { gap: 14px; }
 
     .practice { padding: 14px; }
@@ -740,6 +767,7 @@
 
 <script src="number-data.js"></script>
 <script src="hangul-data.js"></script>
+<script src="alphabet-data.js"></script>
 <script src="custom-words.js"></script>
 <script src="app.js"></script>
 </body>

@@ -1,10 +1,10 @@
 // ============================================================
-// 5살 아이 쓰기 연습 앱 — 숫자와 한글
+// 5살 아이 쓰기 연습 앱 — 숫자와 한글과 알파벳
 //
-// 숫자와 한글은 항목 형태가 같다.
+// 셋 다 항목 형태가 같다.
 //   { id, category, ko, color, bgColor, strokeWidth, viewBox, strokes:[{ d, start }] }
-// 그래서 캔버스·획순 데모·그리기는 둘을 구분하지 않는다. 갈라지는 곳은
-// 홈 화면의 카테고리 탭과, 왼쪽 정보 패널의 내용 두 군데뿐이다.
+// 그래서 캔버스·획순 데모·그리기는 셋을 구분하지 않는다. 갈라지는 곳은
+// 홈 화면의 카테고리 탭, 왼쪽 정보 패널의 내용, 읽어주기의 언어 세 군데뿐이다.
 // ============================================================
 
 // ---------- 진도 ----------
@@ -47,12 +47,17 @@ const STATE = {
 };
 
 // ---------- 배울 것 목록 ----------
-// 숫자 탭은 이 파일이, 한글 네 탭은 hangul-data.js 가 채운다.
+// 숫자 탭은 이 파일이, 한글 네 탭은 hangul-data.js 가, 알파벳 두 탭은
+// alphabet-data.js 가 채운다.
 const CATEGORIES = (function () {
   const list = [{ key: 'number', label: '숫자', icon: '123', color: '#1B7FD4', bgColor: '#D4E9FA' }];
   const H = window.HANGUL_CATEGORY || {};
   ['consonant', 'vowel', 'syllable', 'word'].forEach(k => {
     if (H[k]) list.push(Object.assign({ key: k }, H[k]));
+  });
+  const A = window.ALPHABET_CATEGORY || {};
+  ['upper', 'lower'].forEach(k => {
+    if (A[k]) list.push(Object.assign({ key: k }, A[k]));
   });
   return list;
 })();
@@ -74,12 +79,16 @@ function itemsOf(category) {
     for (let n = 0; n <= 20; n++) out.push(window.NUMBER_DATA[n]);
     return out;
   }
+  if (window.ALPHABET_ORDER && window.ALPHABET_ORDER[category]) {
+    return window.ALPHABET_ORDER[category].map(id => window.ALPHABET_DATA[id]);
+  }
   const order = (window.HANGUL_ORDER && window.HANGUL_ORDER[category]) || [];
   return order.map(id => window.HANGUL_DATA[id]);
 }
 
 function itemById(id) {
   if (window.HANGUL_DATA && window.HANGUL_DATA[id]) return window.HANGUL_DATA[id];
+  if (window.ALPHABET_DATA && window.ALPHABET_DATA[id]) return window.ALPHABET_DATA[id];
   return window.NUMBER_DATA[id] || null;
 }
 
@@ -97,6 +106,9 @@ function partCount() {
   return item && item.parts ? item.parts.length : 1;
 }
 function isNumberItem(item) { return !!item && item.category === 'number'; }
+function isAlphabetItem(item) {
+  return !!item && (item.category === 'upper' || item.category === 'lower');
+}
 
 // 앞 항목을 한 번이라도 끝내야 다음이 열린다. 다만 첫 화면이 자물쇠뿐이지
 // 않도록 각 탭의 앞 몇 개는 처음부터 열어 둔다.
@@ -131,32 +143,72 @@ function reducedMotion() {
 
 // ---------- 읽어주기 (Web Speech API) ----------
 // 한글 학습에서 소릿값은 핵심이라 글자·이름·단어를 눌러 들을 수 있게 한다.
-const TTS = { voice: null, ready: false };
+// 알파벳은 영어 목소리로 읽어야 "에이"가 아니라 A 로 들린다.
+const TTS = { voices: {}, ready: false };
 
-function pickKoreanVoice() {
+function pickVoices() {
   if (!('speechSynthesis' in window)) return;
   const voices = window.speechSynthesis.getVoices() || [];
-  TTS.voice = voices.find(v => v.lang === 'ko-KR') ||
-              voices.find(v => (v.lang || '').toLowerCase().indexOf('ko') === 0) || null;
+  // 기기마다 ko_KR · en_GB 처럼 적기도 한다. 정확히 맞는 것을 먼저,
+  // 없으면 같은 언어의 아무 목소리나 쓴다.
+  const pick = (exact, prefix) => {
+    const norm = v => (v.lang || '').replace('_', '-').toLowerCase();
+    return voices.find(v => norm(v) === exact) ||
+           voices.find(v => norm(v).indexOf(prefix) === 0) || null;
+  };
+  TTS.voices['ko-KR'] = pick('ko-kr', 'ko');
+  TTS.voices['en-US'] = pick('en-us', 'en');
   TTS.ready = voices.length > 0;
 }
+function hasVoice(lang) { return !!TTS.voices[lang]; }
 
-function speak(text, el) {
+// 말 한 마디. 강조는 큐에 넣을 때가 아니라 실제로 읽기 시작할 때 켠다 —
+// 두 마디를 잇달아 읽을 때 둘째 마디는 몇 초 뒤에야 시작한다.
+function makeUtterance(text, lang, el) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang;
+  // 영어 목소리는 같은 속도에서도 빠르게 들려 한 단계 더 늦춘다.
+  u.rate = lang === 'en-US' ? 0.8 : 0.85;   // 4세가 따라올 수 있는 속도
+  u.pitch = lang === 'en-US' ? 1.1 : 1.2;   // 부드럽고 높은 톤
+  const v = TTS.voices[lang];
+  if (v) u.voice = v;
+  if (el) {
+    const off = () => el.classList.remove('speaking');
+    u.onstart = () => { el.classList.add('speaking'); later(off, 4000); };
+    u.onend = off; u.onerror = off;
+  }
+  return u;
+}
+
+function speak(text, el, lang) {
   if (!text || !('speechSynthesis' in window)) return;
   const synth = window.speechSynthesis;
   synth.cancel();                       // 연타해도 겹쳐 읽지 않게
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'ko-KR';
-  u.rate = 0.85;                        // 4세가 따라올 수 있는 속도
-  u.pitch = 1.2;                        // 부드럽고 높은 톤
-  if (TTS.voice) u.voice = TTS.voice;
-  if (el) {
-    el.classList.add('speaking');
-    const off = () => el.classList.remove('speaking');
-    u.onend = off; u.onerror = off;
-    later(off, 4000);                   // 이벤트가 안 오는 브라우저 대비
-  }
-  try { synth.speak(u); } catch (e) { /* 지원 안 하면 조용히 넘어간다 */ }
+  try { synth.speak(makeUtterance(text, lang || 'ko-KR', el)); }
+  catch (e) { /* 지원 안 하면 조용히 넘어간다 */ }
+}
+
+/*
+ * 여러 마디를 잇달아 읽는다 ("Apple" 다음에 "사과").
+ * 중간에 cancel 을 끼우면 앞 마디가 잘리므로, 한 번만 비우고 큐에 쌓는다.
+ *
+ * 없는 언어는 우리말로 갈아탄다. 영어 목소리가 없는 기기에 라틴 글자를
+ * 그대로 넘기면 우리말 목소리가 철자를 읽거나 뭉개 버린다 — 그래서
+ * 각 마디는 대신 읽을 우리말(alt)을 함께 들고 다닌다.
+ */
+function speakParts(parts, el) {
+  if (!parts || !parts.length || !('speechSynthesis' in window)) return;
+  const synth = window.speechSynthesis;
+  synth.cancel();
+  parts.forEach(part => {
+    // 우리말은 목소리 목록이 비어 있어도 그대로 넘긴다 — 브라우저가 기본
+    // 목소리로 읽는다. 갈아타는 건 우리말 목소리에 맡길 수 없는 말뿐이다.
+    const usable = (part.lang === 'ko-KR' || hasVoice(part.lang))
+      ? part
+      : { text: part.alt || '', lang: 'ko-KR' };
+    if (!usable.text) return;
+    try { synth.speak(makeUtterance(usable.text, usable.lang, el)); } catch (e) { /* 넘어간다 */ }
+  });
 }
 
 // 버튼에서 부르는 진입점 (텍스트는 STATE에서 그때그때 만든다)
@@ -165,6 +217,8 @@ function speakNumber(kind) {
   if (!data) return;
   // 한글은 이름(기역)과 소리(그)가 다르다. 큰 글자를 누르면 소리를, 이름을
   // 누르면 이름을 읽어 준다. 단어는 셋이 모두 같은 말이다.
+  // 알파벳은 영어 음성이 읽는다 — 언어까지 함께 정해 speakParts 로 넘긴다.
+  if (isAlphabetItem(data)) { speakAlphabet(kind, data); return; }
   const map = isNumberItem(data) ? {
     ko:     [data.ko, document.getElementById('infoKo')],
     native: [data.native, document.getElementById('infoNative')],
@@ -178,6 +232,21 @@ function speakNumber(kind) {
   };
   const pair = map[kind];
   if (pair && pair[0]) { unlockAudio(); speak(pair[0], pair[1]); }
+}
+
+// 알파벳 — 글자 이름은 영어로, 대표 단어는 영어로 읽고 뜻을 우리말로 잇는다.
+// 영어 목소리가 없는 기기에서는 우리말 이름(에이)과 우리말 발음(애플)으로 읽는다.
+function speakAlphabet(kind, data) {
+  const en = t => ({ text: t, lang: 'en-US' });
+  const ko = t => ({ text: t, lang: 'ko-KR' });
+  const map = {
+    ko:     [[Object.assign(en(data.en), { alt: data.ko })], document.getElementById('infoKo')],
+    num:    [[Object.assign(en(data.en), { alt: data.ko })], document.getElementById('infoNum')],
+    object: [[Object.assign(en(data.word), { alt: data.sayEn }), ko(data.wordKo)],
+             document.querySelector('.obj-caption')]
+  };
+  const pair = map[kind];
+  if (pair) { unlockAudio(); speakParts(pair[0], pair[1]); }
 }
 
 // "사과 3개"가 아니라 "사과 세 개"로 읽어준다.
@@ -298,14 +367,19 @@ const PAGE_SHAPE = {
   consonant: { cls: 'cols-7', per: 21 },
   vowel:     { cls: 'cols-7', per: 21 },
   syllable:  { cls: 'cols-5', per: 15 },
-  word:      { cls: 'cols-4', per: 16 }
+  word:      { cls: 'cols-4', per: 16 },
+  // 26자 — 높이가 넉넉하면 7×4 로 한 쪽에 다 들어간다
+  upper:     { cls: 'cols-7', per: 28 },
+  lower:     { cls: 'cols-7', per: 28 }
 };
 const PAGE_SHAPE_NARROW = {
   number:    { cls: 'cols-4' },
   consonant: { cls: 'cols-4' },
   vowel:     { cls: 'cols-4' },
   syllable:  { cls: 'cols-3' },
-  word:      { cls: 'cols-2' }
+  word:      { cls: 'cols-2' },
+  upper:     { cls: 'cols-4' },
+  lower:     { cls: 'cols-4' }
 };
 // 태블릿을 세로로 세우면 폭이 절반이 된다. 폰만큼 좁지는 않으니 한 단계만 줄인다.
 const PAGE_SHAPE_PORTRAIT = {
@@ -313,7 +387,9 @@ const PAGE_SHAPE_PORTRAIT = {
   consonant: { cls: 'cols-5' },
   vowel:     { cls: 'cols-5' },
   syllable:  { cls: 'cols-4' },
-  word:      { cls: 'cols-2' }
+  word:      { cls: 'cols-2' },
+  upper:     { cls: 'cols-5' },
+  lower:     { cls: 'cols-5' }
 };
 
 // CSS 의 화면 분기와 같은 조건을 쓴다. 한쪽만 바뀌면 열이 어긋난다.
@@ -574,6 +650,8 @@ function closeWordSheet() {
 function cardLabel(data, stars, open) {
   const what = isNumberItem(data)
     ? `숫자 ${data.id}, ${data.ko}${data.native ? ' 또는 ' + data.native : ''}, ${objectPhrase(data)}`
+    : isAlphabetItem(data)
+    ? `알파벳 ${data.id}, ${data.ko}, ${data.word} ${data.wordKo}`
     : `${data.id}, ${data.ko}`;
   return open ? `${what}, 별 ${stars}개 모음` : `${what}, 아직 잠겨 있어요`;
 }
@@ -642,6 +720,17 @@ function renderInfoPanel(data) {
     return;
   }
 
+  // 알파벳 — 이름(에이)과 대표 단어(Apple 사과)를 보여 준다.
+  if (isAlphabetItem(data)) {
+    numEl.setAttribute('aria-label', `${data.id}, ${data.ko}. 눌러서 소리 듣기`);
+    koEl.textContent = data.ko;
+    koEl.setAttribute('aria-label', `${data.ko}. 눌러서 소리 듣기`);
+    natEl.style.display = 'none';
+    enEl.style.display = 'none';
+    renderExampleWord(data, data.wordKo);
+    return;
+  }
+
   // 한글 — 이름(기역)과 대표 단어(가방)를 보여 준다.
   numEl.setAttribute('aria-label', `${data.id}. 눌러서 소리 듣기`);
   koEl.textContent = data.ko === data.id ? data.say : data.ko;
@@ -677,8 +766,9 @@ function renderCountingObjects(data) {
     objectPhrase(data)));
 }
 
-// 한글 — 그 글자가 들어간 대표 단어 하나
-function renderExampleWord(data) {
+// 한글·알파벳 — 그 글자가 들어간 대표 단어 하나.
+// sub 를 주면 단어 아래 뜻을 한 줄 더 붙인다 (Apple / 사과).
+function renderExampleWord(data, sub) {
   const objs = document.getElementById('infoObjects');
   objs.classList.remove('zero');
   objs.innerHTML = '';
@@ -688,14 +778,20 @@ function renderExampleWord(data) {
     e.textContent = data.emoji;
     objs.appendChild(e);
   }
-  objs.appendChild(speakableCaption(data.word, data.word));
+  objs.appendChild(speakableCaption(data.word, sub ? `${data.word}, ${sub}` : data.word, sub));
 }
 
-function speakableCaption(text, label) {
+function speakableCaption(text, label, sub) {
   const caption = document.createElement('button');
   caption.type = 'button';
   caption.className = 'obj-caption speakable';
   caption.textContent = text;
+  if (sub) {
+    const line = document.createElement('span');
+    line.className = 'cap-sub';
+    line.textContent = sub;
+    caption.appendChild(line);
+  }
   caption.setAttribute('aria-label', `${label}. 눌러서 소리 듣기`);
   caption.addEventListener('click', () => speakNumber('object'));
   return caption;
@@ -1283,7 +1379,7 @@ function windingSign(pts) {
  * 57건). 획끼리 멀면 예전처럼 넉넉하게, 붙어 있을 때만 좁아진다.
  */
 function strokeFollows(user, data, i, loose) {
-  if (!user || user.length < 2) return false;
+  if (!user || !user.length) return false;
   const sw = strokeW(data);
   // 혼자쓰기는 안내가 없어 글자를 통째로 옮겨 쓰는 게 예사다. 통로를 넓혀
   // 자리보다 모양과 방향으로 알아보게 한다.
@@ -1303,6 +1399,29 @@ function strokeFollows(user, data, i, loose) {
     Math.min(sw * g.scale * startMul, neighbour * 0.5));
   const u0 = user[0], u1 = user[user.length - 1];
 
+  /*
+   * 점 획 (i·j 의 점). 톡 찍으면 점이 하나뿐이라 방향도, 지나간 자리도
+   * 잴 것이 없다 — 예전 규칙은 그런 획을 무조건 퇴짜 놓았다. 점은
+   * 제자리에 찍었는지만 본다.
+   *
+   * 점인지는 데이터가 말해 준다(획의 dot). 길이로 어림하지 않는 이유는
+   * 한글 ㅊ·ㅎ 의 윗꼭지가 획 굵기만큼 짧아서다 — 그걸 점으로 치면 방향을
+   * 보지 않게 되어, 오른쪽으로 긋도록 가르치던 것이 도로 풀린다.
+   *
+   * 길게 그은 획을 점으로 쳐 주지 않도록 그은 자리의 크기도 함께 본다.
+   */
+  if (data.strokes[i].dot) {
+    const near0 = Math.max(startTol, sw * g.scale * 1.2);
+    if (Math.hypot(u0.x - gs.x, u0.y - gs.y) > near0) return false;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    user.forEach(p => {
+      if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
+      if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
+    });
+    return Math.hypot(x1 - x0, y1 - y0) <= sw * g.scale * 2.5;
+  }
+
+  if (user.length < 2) return false;
   if (Math.hypot(u0.x - gs.x, u0.y - gs.y) > startTol) return false;
 
   /*
@@ -1578,8 +1697,8 @@ window.addEventListener('load', () => {
 
   // 읽어주기 음성 목록은 비동기로 채워진다
   if ('speechSynthesis' in window) {
-    pickKoreanVoice();
-    window.speechSynthesis.addEventListener('voiceschanged', pickKoreanVoice);
+    pickVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', pickVoices);
   }
 
   // 정보 패널의 눌러 듣기
