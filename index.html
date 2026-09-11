@@ -63,7 +63,11 @@
        영역은 그보다 작아서, 화면 아래쪽(버튼 바)이 툴바에 가려진다. 스크롤도 막아 두었으니
        아이는 '다 했어요' 를 누를 방법이 없다. dvh 는 지금 실제로 보이는 높이다. */
     height: 100vh; height: 100dvh; width: 100vw;
-    touch-action: none;
+    /* 손가락 제스처를 막는 일은 '화면'이 한다(.home/.practice). 여기에 touch-action:none
+       을 걸면 그 값이 자손 전부에 겹쳐 들어가, 겹쳐 뜨는 시트 안을 손가락으로 밀어
+       내릴 수 없게 된다 — 폰에서는 시트가 화면보다 길어 '닫기'가 손에 닿지 않았다.
+       바탕이 딸려 움직이는 것은 overflow:hidden 과 overscroll-behavior 가 막는다. */
+    overscroll-behavior: none;
     -webkit-user-select: none;
     background: var(--bg);
     color: var(--ink);
@@ -75,15 +79,20 @@
   .home {
     height: 100%; display: none; flex-direction: column; padding: 36px;
     background: var(--bg);
+    /* 쪽 넘김·그리기는 손가락을 직접 받는다. 브라우저가 먼저 밀거나 당기면 안 된다. */
+    touch-action: none;
   }
   .home.active { display: flex; }
   .home-header {
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
     margin-bottom: 20px;
   }
   .home-title {
     font-size: 34px; font-weight: 800; color: var(--ink);
     margin: 0; letter-spacing: -0.5px;
+    /* 머리말에 이름칩과 별통이 함께 선다. 좁은 화면에서 셋이 부딪히면 물러설 것은
+       인사말 쪽이다 — 이름과 별 개수는 줄이면 읽을 수 없게 된다. */
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .stars-collected {
     background: var(--star); color: #FFFFFF;
@@ -93,6 +102,47 @@
     display: flex; align-items: center; gap: 8px;
   }
   .stars-collected .ico-svg { color: #FFFFFF; }
+
+  /* ---------- 쓰는 사람 ----------
+     지금 누구 차례인지는 홈에 늘 떠 있어야 한다. 시트를 열어야만 알 수 있으면
+     형이 동생 이름으로 한 쪽을 다 쓰고 나서야 알아차린다. 별통과 나란히 서지만
+     색은 쓰지 않는다 — 노란 별통 옆의 또 하나의 색 알약은 탭처럼 보인다. */
+  .who-chip {
+    display: flex; align-items: center; gap: 8px; flex: 0 0 auto; cursor: pointer;
+    height: 64px; padding: 0 20px 0 10px; border-radius: 999px;
+    background: var(--card); border: 3px solid var(--lock-edge);
+    font-family: inherit; font-size: 22px; font-weight: 800; color: var(--ink);
+    box-shadow: 0 6px 0 rgba(90,74,56,.10);
+    max-width: 38vw;
+    transition: transform 90ms ease-out, box-shadow 90ms ease-out;
+  }
+  .who-chip:active { transform: translateY(4px); box-shadow: var(--sh-press); }
+  .who-chip:focus-visible { outline: 4px solid var(--step-now); outline-offset: 3px; }
+  .who-face {
+    width: 44px; height: 44px; border-radius: 999px; background: var(--sunken);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; flex: 0 0 auto;
+  }
+  .who-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* 시트 안의 사람 카드 — 아이가 제 얼굴을 보고 고르는 자리라 크게 둔다 */
+  .who-list { display: flex; flex-wrap: wrap; gap: 10px; }
+  .who-card {
+    flex: 1 1 160px; min-width: 0; cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--sunken); border: 3px solid transparent; border-radius: 20px;
+    padding: 10px 14px; font-family: inherit; font-size: 22px; font-weight: 800; color: inherit;
+  }
+  .who-card.on { border-color: var(--step-now); background: #E3F2E9; }
+  .who-card .who-face { background: var(--card); }
+  .who-card .who-sub {
+    margin-left: auto; display: flex; align-items: center; gap: 4px;
+    font-size: 16px; font-weight: 700; color: var(--ink-mid);
+  }
+  .who-card .who-sub .ico-svg { color: var(--star); }
+  .sheet-tools { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+  /* 한 번 더 누르면 정말 지워진다는 뜻. 색이 바뀌는 곳은 이 한 버튼뿐이다. */
+  .sheet-del.warn { color: #B8481F; }
 
   /* ---------- 카테고리 탭 ---------- */
   .category-tabs { display: flex; gap: 12px; margin-bottom: 20px; }
@@ -193,16 +243,18 @@
   }
   .number-card.bounce { animation: card-bounce 420ms ease-out; }
 
-  /* ---------- 단어 넣기 (부모용) ---------- */
+  /* ---------- 겹쳐 뜨는 시트 (단어 넣기·쓰는 사람) ---------- */
   .number-card.add-word { background: var(--sunken); border: 3px dashed var(--lock-line); box-shadow: none; }
   .number-card .add-word-label { font-size: 18px; color: var(--ink-mid); }
-  .word-sheet {
+  .sheet-back {
     position: fixed; inset: 0; z-index: 60; display: none;
     align-items: center; justify-content: center; background: rgba(60,48,36,0.42);
   }
-  .word-sheet.active { display: flex; }
+  .sheet-back.active { display: flex; }
   .sheet-card {
     width: min(560px, 92vw); max-height: 88vh; overflow: auto;
+    /* 부모가 읽고 누르는 자리다. 위아래로 미는 것만 열어 둔다. */
+    touch-action: pan-y; -webkit-overflow-scrolling: touch;
     background: var(--card); border-radius: var(--r-card); padding: 24px;
     box-shadow: var(--sh-over);
     display: flex; flex-direction: column; gap: 12px;
@@ -211,7 +263,10 @@
   .sheet-hint { margin: 0; font-size: 16px; font-weight: 500; color: var(--ink-mid); line-height: 1.6; }
   .sheet-row { display: flex; gap: 10px; }
   .sheet-row input {
-    flex: 1; height: 52px; border-radius: 16px; border: 3px solid var(--lock-edge);
+    /* min-width 를 0 으로 내리지 않으면 input 은 제 기본 폭(size=20, 22px 글자로
+       459px)보다 좁아지지 않는다. 그만큼 곁의 버튼이 시트 밖으로 밀려 잘렸다. */
+    flex: 1; min-width: 0;
+    height: 52px; border-radius: 16px; border: 3px solid var(--lock-edge);
     padding: 0 16px; font-family: inherit; font-size: 22px; color: inherit; background: var(--canvas);
   }
   .sheet-row input:focus-visible { outline: 4px solid var(--step-now); outline-offset: 2px; }
@@ -240,6 +295,8 @@
      44px 아래로 내리지 않는다. */
   .practice {
     height: 100%; display: none; flex-direction: column; padding: 24px;
+    /* 글자를 쓰는 동안 손바닥이 닿아 화면이 확대되거나 밀리면 안 된다 */
+    touch-action: none;
   }
   .practice.active { display: flex; }
   .practice-header {
@@ -538,9 +595,26 @@
      열 수만 줄이고 쪽당 개수를 그대로 두면 아래 줄이 화면 밖으로 밀린다. */
   @media (max-width: 560px) {
     .home { padding: 16px 14px 10px; }
-    .home-header { margin-bottom: 12px; }
-    .home-title { font-size: 22px; letter-spacing: -0.6px; }
+    .home-header { margin-bottom: 12px; gap: 8px; }
+    /* 인사말·이름칩·별통 셋이 한 줄에 서야 한다. 22px 이면 360px 폭에서 인사말
+       끝이 '…' 로 잘렸다 — 20px 이면 잘리지 않고 다 읽힌다. */
+    .home-title { font-size: 20px; letter-spacing: -0.6px; }
     .stars-collected { height: 44px; padding: 0 14px; font-size: 20px; gap: 5px; }
+    /* 셋이 한 줄에 서야 하는 폭이다. 이름칩도 별통과 같은 키로 낮춘다. */
+    .who-chip { height: 44px; padding: 0 12px 0 5px; font-size: 17px; gap: 5px; border-width: 2px; }
+    .who-face { width: 34px; height: 34px; font-size: 19px; }
+    /* 폰에서는 사람 카드를 한 줄에 하나씩 놓는다. 둘씩 놓으면 카드가 130px 밖에
+       되지 않아 여섯 글자 이름이 '지…' 로 잘렸다 — 누구인지 못 알아보면 고를 수 없다. */
+    .who-card { flex-basis: 100%; font-size: 19px; padding: 8px 10px; }
+
+    /* 폰에서는 시트가 화면보다 길어지기 쉽다. 밀어 내리면 되지만, 미는 횟수는
+       적을수록 좋다 — 여백과 글자를 한 단계씩 줄여 가능한 한 한 화면에 담는다. */
+    .sheet-card { padding: 18px; gap: 10px; max-height: 92vh; }
+    .sheet-card h2 { font-size: 22px; }
+    .sheet-hint { font-size: 14px; line-height: 1.5; }
+    .sheet-emoji { width: 36px; height: 36px; font-size: 18px; border-radius: 12px; }
+    .sheet-item { font-size: 17px; padding: 6px 10px; }
+    .sheet-del { font-size: 14px; }
 
     /* 탭이 일곱이라 한 줄에 넣으면 탭 하나가 네 살 손가락보다 좁아진다.
        두 줄(4+3)로 접는다 — 카드 줄 수는 rowsFor() 가 남은 높이에서 다시 잡는다. */
@@ -662,6 +736,8 @@
 
     .home { padding: 24px 20px 12px; }
     .home-title { font-size: 28px; }
+    .who-chip { height: 56px; font-size: 20px; }
+    .who-face { width: 40px; height: 40px; font-size: 22px; }
     .category-tabs { gap: 8px; }
     .category-tab { height: 62px; font-size: 17px; gap: 4px; padding: 0 4px; }
     .category-tab .tab-icon { min-width: 28px; height: 28px; padding: 0 4px; font-size: 13px; border-radius: 10px; }
@@ -710,6 +786,7 @@
   <div class="home active" id="home">
     <div class="home-header">
       <h1 class="home-title">오늘은 뭐 써 볼까?</h1>
+      <button type="button" class="who-chip" id="whoChip"></button>
       <div class="stars-collected" id="totalStars" aria-label="모은 별">
         <span id="totalStarsIcon"></span><span id="totalStarsNum">0</span>
       </div>
@@ -722,7 +799,10 @@
   </div>
 
   <!-- 단어 넣기 (부모용) -->
-  <div class="word-sheet" id="wordSheet"></div>
+  <div class="sheet-back" id="wordSheet"></div>
+
+  <!-- 쓰는 사람 고르기 -->
+  <div class="sheet-back" id="whoSheet"></div>
 
   <!-- 연습 화면 -->
   <div class="practice" id="practice">
@@ -768,6 +848,7 @@
 <script src="number-data.js"></script>
 <script src="hangul-data.js"></script>
 <script src="alphabet-data.js"></script>
+<script src="profiles.js"></script>
 <script src="custom-words.js"></script>
 <script src="app.js"></script>
 </body>

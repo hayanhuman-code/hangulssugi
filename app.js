@@ -8,16 +8,8 @@
 // ============================================================
 
 // ---------- 진도 ----------
-const PROGRESS_KEY = 'writingProgress';
-
-function loadProgress() {
-  try {
-    const cur = localStorage.getItem(PROGRESS_KEY);
-    if (cur) return JSON.parse(cur);
-    // 숫자만 있던 시절의 기록을 그대로 이어받는다 (키가 '0'~'20' 이라 한글과 겹치지 않는다)
-    return JSON.parse(localStorage.getItem('numberProgress') || '{}');
-  } catch (e) { return {}; }
-}
+// 어느 칸에 담고 어디서 꺼낼지는 profiles.js 가 안다. 여기서는 '지금 쓰는 사람의
+// 진도' 한 벌만 들고 있으면 된다 — 사람이 바뀌면 STATE.progress 를 통째로 갈아 끼운다.
 
 const STATE = {
   currentId: '0',        // 연습 중인 항목 ('7' · 'ㄱ' · '나비')
@@ -33,7 +25,7 @@ const STATE = {
   soloDone: [],          // 혼자쓰기에서 알아본 획
   soloHintAt: 0,         // 마지막으로 힌트를 띄운 시각 (잔소리 방지)
   soloClean: true,       // 혼자쓰기를 처음부터 끝까지 순서대로 썼는지
-  progress: loadProgress(),  // { "3": 3, "ㄱ": 2 } -> 항목별 별 개수
+  progress: window.Profiles.loadProgress(),  // { "3": 3, "ㄱ": 2 } -> 항목별 별 개수
   audioCtx: null,
   timers: [],            // 살아있는 setTimeout id 전부
   demoPlaying: false,
@@ -329,6 +321,7 @@ function sfxCelebrate() {
 
 // ---------- 홈 화면 ----------
 function renderHome() {
+  renderWhoChip();
   renderCategoryTabs();
   renderGrid();
   updateTotalStars();
@@ -647,6 +640,165 @@ function closeWordSheet() {
   sheet.innerHTML = '';
 }
 
+// ---------- 쓰는 사람 ----------
+// 홈 머리말의 칩이 지금 누구 차례인지 늘 보여 주고, 누르면 사람을 바꾼다.
+// 별과 진도는 사람마다 따로 쌓이므로(profiles.js), 사람이 바뀌면 잠긴 칸도
+// 모은 별도 그 사람 것으로 통째로 바뀐다.
+
+// 이름은 부모가 자판으로 친 글자다. 교재 단어(한글 완성형만 통과)와 달리 무엇이든
+// 들어올 수 있으니 화면에 얹기 전에 꺾쇠를 죽인다.
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function renderWhoChip() {
+  const chip = document.getElementById('whoChip');
+  if (!chip) return;
+  const who = window.Profiles.current();
+  chip.innerHTML = `<span class="who-face" aria-hidden="true">${who.emoji}</span>` +
+                   `<span class="who-name">${esc(who.name)}</span>`;
+  chip.setAttribute('aria-label', `지금 쓰는 사람 ${who.name}. 누르면 바꿔요`);
+}
+
+// 사람이 바뀌면 홈을 처음 쪽부터 다시 그린다 — 열린 칸이 달라졌는데 보던 쪽에
+// 그대로 서 있으면, 있던 카드가 사라진 빈 쪽을 보게 된다.
+function useProfile(id) {
+  window.Profiles.select(id);
+  STATE.progress = window.Profiles.loadProgress();
+  STATE.page = 0;
+  renderHome();
+}
+
+function openWhoSheet() {
+  const sheet = document.getElementById('whoSheet');
+  const P = window.Profiles;
+  // 아직 아무도 쓰지 않은 얼굴을 먼저 권한다 — 형제가 같은 얼굴을 달면 칩만 보고
+  // 누구 차례인지 알 수 없다.
+  const freeEmoji = () => P.emoji.find(e => !P.all().some(p => p.emoji === e)) || P.emoji[0];
+  let picked = freeEmoji();
+  let editing = null;      // 이름을 고치는 중인 사람 (null 이면 새로 만드는 중)
+  let pendingDel = null;   // 지우기를 한 번 누른 사람 — 두 번 눌러야 지워진다
+
+  function draw(msg) {
+    const list = P.all();
+    const curId = P.current().id;
+    sheet.innerHTML = `
+      <div class="sheet-card" role="dialog" aria-modal="true" aria-labelledby="whoTitle">
+        <h2 id="whoTitle">누가 쓸까요?</h2>
+        <p class="sheet-hint">사람마다 별과 진도를 따로 모아요. 이 기기에만 저장돼요.</p>
+        <div class="who-list" role="group" aria-label="쓰는 사람 고르기">
+          ${list.map(p => `
+            <button type="button" class="who-card${p.id === curId ? ' on' : ''}" data-pick="${p.id}"
+                    aria-pressed="${p.id === curId ? 'true' : 'false'}"
+                    aria-label="${esc(p.name)}, 별 ${P.starsOf(p.id)}개">
+              <span class="who-face" aria-hidden="true">${p.emoji}</span>
+              <span class="who-name">${esc(p.name)}</span>
+              <span class="who-sub" aria-hidden="true">${starIcon(16, true)}${P.starsOf(p.id)}</span>
+            </button>`).join('')}
+        </div>
+        <p class="sheet-hint">${editing ? `‘${esc(editing.name)}’ 의 이름과 얼굴을 고쳐요.`
+          : `새로 쓸 사람을 만들어요. ${P.maxCount}명까지 만들 수 있어요.`}</p>
+        <div class="sheet-row">
+          <input id="whoInput" type="text" maxlength="${P.maxName}"
+                 value="${editing ? esc(editing.name) : ''}"
+                 placeholder="예: 지우" aria-label="사람 이름" autocomplete="off">
+          <button type="button" class="btn btn-primary" id="whoSave">${editing ? '고치기' : '만들기'}</button>
+          ${editing ? '<button type="button" class="btn" id="whoCancel">그만두기</button>' : ''}
+        </div>
+        <div class="sheet-emojis" role="group" aria-label="얼굴 고르기">
+          ${P.emoji.map(e =>
+            `<button type="button" class="sheet-emoji${e === picked ? ' on' : ''}" data-emoji="${e}" aria-label="얼굴 ${e}">${e}</button>`
+          ).join('')}
+        </div>
+        <div class="sheet-msg" id="whoMsg" role="status">${esc(msg || '')}</div>
+        <div class="sheet-list">
+          ${list.map(p => `<div class="sheet-item">
+              <span>${p.emoji} ${esc(p.name)}</span>
+              <span class="sheet-tools">
+                <button type="button" class="sheet-del" data-edit="${p.id}" aria-label="${esc(p.name)} 이름 고치기">이름 고치기</button>
+                ${list.length > 1
+                  ? `<button type="button" class="sheet-del${pendingDel === p.id ? ' warn' : ''}" data-del="${p.id}"
+                       aria-label="${esc(p.name)} 지우기">${pendingDel === p.id ? '정말 지울까요?' : '지우기'}</button>`
+                  : ''}
+              </span></div>`).join('')}
+        </div>
+        <button type="button" class="btn" id="whoClose">닫기</button>
+      </div>`;
+
+    const input = document.getElementById('whoInput');
+    const msgEl = document.getElementById('whoMsg');
+
+    sheet.querySelectorAll('[data-pick]').forEach(b => {
+      b.addEventListener('click', () => {
+        const id = b.getAttribute('data-pick');
+        sfxTap();
+        if (id !== P.current().id) useProfile(id);
+        closeWhoSheet();
+      });
+    });
+    sheet.querySelectorAll('.sheet-emoji').forEach(b => {
+      b.addEventListener('click', () => { picked = b.getAttribute('data-emoji'); draw(msgEl.textContent); });
+    });
+    sheet.querySelectorAll('[data-edit]').forEach(b => {
+      b.addEventListener('click', () => {
+        editing = P.all().find(p => p.id === b.getAttribute('data-edit'));
+        picked = editing.emoji;
+        pendingDel = null;
+        draw('');
+      });
+    });
+    // 한 번 누르면 물어보고, 이어서 한 번 더 눌러야 지운다. 지우면 그 사람이 모은
+    // 별이 통째로 사라지는데, 네 살 손가락이 스치기만 해도 지워져서는 안 된다.
+    sheet.querySelectorAll('[data-del]').forEach(b => {
+      b.addEventListener('click', () => {
+        const id = b.getAttribute('data-del');
+        if (pendingDel !== id) {
+          pendingDel = id;
+          draw('');
+          later(() => { if (pendingDel === id) { pendingDel = null; if (sheet.classList.contains('active')) draw(''); } }, 4000);
+          return;
+        }
+        pendingDel = null;
+        const wasCurrent = id === P.current().id;
+        const res = P.remove(id);
+        if (!res.ok) { draw(res.reason); return; }
+        // 지운 사람이 쓰던 중이었다면 profiles.js 가 남은 첫 사람으로 옮겨 놨다
+        if (wasCurrent) useProfile(P.current().id); else renderHome();
+        draw('');
+      });
+    });
+    document.getElementById('whoClose').addEventListener('click', closeWhoSheet);
+    const cancel = document.getElementById('whoCancel');
+    if (cancel) cancel.addEventListener('click', () => { editing = null; picked = freeEmoji(); draw(''); });
+
+    document.getElementById('whoSave').addEventListener('click', () => {
+      const res = editing ? P.rename(editing.id, input.value, picked) : P.add(input.value, picked);
+      if (!res.ok) { msgEl.textContent = res.reason; input.focus(); return; }
+      sfxSuccess();
+      const made = res.profile;
+      const isNew = !editing;
+      editing = null;
+      picked = isNew ? freeEmoji() : made.emoji;
+      // 새로 만든 사람에게 바로 넘겨준다 — 부모가 사람을 만드는 때는 아이에게
+      // 기기를 건네주기 직전이다. 이름만 고친 때는 쓰던 사람이 그대로다.
+      if (isNew) useProfile(made.id); else renderHome();
+      draw('');
+    });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('whoSave').click();
+    });
+  }
+
+  draw('');
+  sheet.classList.add('active');
+}
+
+function closeWhoSheet() {
+  const sheet = document.getElementById('whoSheet');
+  sheet.classList.remove('active');
+  sheet.innerHTML = '';
+}
+
 function cardLabel(data, stars, open) {
   const what = isNumberItem(data)
     ? `숫자 ${data.id}, ${data.ko}${data.native ? ' 또는 ' + data.native : ''}, ${objectPhrase(data)}`
@@ -665,7 +817,7 @@ function updateTotalStars() {
 function saveProgress(id, stars) {
   const prev = STATE.progress[id] || 0;
   STATE.progress[id] = Math.max(prev, stars);
-  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(STATE.progress)); } catch (e) { /* 저장 불가면 이번 세션만 유지 */ }
+  window.Profiles.saveProgress(STATE.progress);
   updateTotalStars();
 }
 
@@ -1685,6 +1837,8 @@ window.addEventListener('load', () => {
   const sound = document.getElementById('soundBtn');
   sound.innerHTML = icon('sound', 52) + '<span>소리 듣기</span>';
   sound.addEventListener('click', () => speakNumber('ko'));
+
+  document.getElementById('whoChip').addEventListener('click', () => { sfxTap(); openWhoSheet(); });
 
   renderHome();
   initGridSwipe();
