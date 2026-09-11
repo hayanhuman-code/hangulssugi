@@ -612,6 +612,24 @@
     .step-dot:not(.active) > span:not(.step-num) { display: none; }
   }
 
+  /* 탭 일곱이 한 줄에 들어가지 않는 구간 (가로로 누운 폰 · 작은 창).
+     폰 분기(560px 이하)는 두 줄로 접어 해결하지만, 여기서는 접을 수 없다 —
+     가로로 누운 폰은 높이가 390px 뿐이라 탭 한 줄을 더 얹으면 카드가 설 자리가
+     없다. 그래서 접는 대신 줄인다. 세로 화면은 아래 태블릿 세로 블록이 다시 잡는다. */
+  @media (min-width: 561px) and (max-width: 1023px) {
+    .category-tabs { gap: 5px; }
+    .category-tab { height: 62px; font-size: 18px; gap: 5px; padding: 0 4px; }
+    .category-tab .tab-icon {
+      min-width: 30px; height: 30px; padding: 0 4px; font-size: 14px; border-radius: 11px;
+    }
+  }
+
+  /* 더 좁으면 글자를 더 줄이는 대신 아이콘 칩을 뺀다. 15px 이하로 내려간 이름표는
+     네 살이 읽지 못한다 — 이름이 먼저고, 칩은 색과 함께 거드는 표지다. */
+  @media (min-width: 561px) and (max-width: 780px) and (min-aspect-ratio: 1/1) {
+    .category-tab .tab-icon { display: none; }
+  }
+
   /* 반응형: 세로로 세운 화면 (태블릿 세로 포함).
      본문을 한 줄로 세우는 것만으로는 모자란다. 폭이 절반으로 줄었는데 머리말·버튼·
      정보 패널이 가로 기준 크기 그대로면 오른쪽으로 밀려 잘린다 — 600px 폭에서
