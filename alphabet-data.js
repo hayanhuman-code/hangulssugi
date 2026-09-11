@@ -26,6 +26,9 @@
 //      u만은 예외 — 오른쪽을 덧긋는 것이 교재의 표준이라 그대로 두었다.
 //   5. 점(i j)은 기둥을 쓴 뒤에 찍고, 8단위 짧은 세로획으로 적는다.
 //      길이 0인 경로로 두면 획순 데모도 시작 표식도 그릴 것이 없어진다.
+//      점은 { d, dot: true } 로 적어 둔다 — 채점기가 톡 찍은 한 점을 받으려면
+//      그 획이 점이라는 걸 알아야 하는데, 길이로 어림하면 한글 ㅊ·ㅎ 의
+//      짧은 윗꼭지(21~24)까지 점으로 오해한다.
 //   6. 뒤 획이 앞 획의 선 위에서 시작할 때(G K R k)는 시작점을 그 선 위에 정확히 둔다.
 //
 // 경로는 M · L · C · Z 절대좌표만 쓴다 — number-data.js의 PATH_UTIL이
@@ -125,9 +128,9 @@
     h: ['M 55 35 L 55 150',
         'M 55 70 C 90 62 145 78 145 110 L 145 150'],
     i: ['M 100 70 L 100 150',
-        'M 100 30 L 100 38'],
+        { d: 'M 100 30 L 100 38', dot: true }],
     j: ['M 112 70 L 112 168 C 112 182 96 189 76 184',
-        'M 112 30 L 112 38'],
+        { d: 'M 112 30 L 112 38', dot: true }],
     k: ['M 55 35 L 55 150',
         'M 138 76 L 57 114',
         'M 78 104 L 142 150'],
@@ -222,13 +225,19 @@
   // 글자마다 폭이 달라(i 와 W) 원형 그대로 두면 한쪽으로 쏠린다.
   // 숫자 한 자리와 같은 방식으로 잉크를 셀 가운데에 맞춘다. 세로는 건드리지
   // 않는다 — 기준선이 곧 이 데이터의 뼈대다.
+  // 원형은 경로 문자열이거나 { d, dot } 이다.
   function centred(paths, sw) {
-    const raw = paths.map(d => ({ d: d, start: startOf(d) }));
+    const raw = paths.map(p => {
+      const src = typeof p === 'string' ? { d: p } : p;
+      return { d: src.d, start: startOf(src.d), dot: !!src.dot };
+    });
     const ink = PU.inkX(raw, sw);
     const dx = round((CELL - (ink[1] - ink[0])) / 2 - ink[0]);
     return raw.map(s => {
       const d = PU.translatePath(s.d, dx, 0);
-      return { d: d, start: startOf(d) };
+      const out = { d: d, start: startOf(d) };
+      if (s.dot) out.dot = true;
+      return out;
     });
   }
 

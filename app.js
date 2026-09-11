@@ -1336,7 +1336,7 @@ function windingSign(pts) {
  * 57건). 획끼리 멀면 예전처럼 넉넉하게, 붙어 있을 때만 좁아진다.
  */
 function strokeFollows(user, data, i, loose) {
-  if (!user || user.length < 2) return false;
+  if (!user || !user.length) return false;
   const sw = strokeW(data);
   // 혼자쓰기는 안내가 없어 글자를 통째로 옮겨 쓰는 게 예사다. 통로를 넓혀
   // 자리보다 모양과 방향으로 알아보게 한다.
@@ -1356,6 +1356,29 @@ function strokeFollows(user, data, i, loose) {
     Math.min(sw * g.scale * startMul, neighbour * 0.5));
   const u0 = user[0], u1 = user[user.length - 1];
 
+  /*
+   * 점 획 (i·j 의 점). 톡 찍으면 점이 하나뿐이라 방향도, 지나간 자리도
+   * 잴 것이 없다 — 예전 규칙은 그런 획을 무조건 퇴짜 놓았다. 점은
+   * 제자리에 찍었는지만 본다.
+   *
+   * 점인지는 데이터가 말해 준다(획의 dot). 길이로 어림하지 않는 이유는
+   * 한글 ㅊ·ㅎ 의 윗꼭지가 획 굵기만큼 짧아서다 — 그걸 점으로 치면 방향을
+   * 보지 않게 되어, 오른쪽으로 긋도록 가르치던 것이 도로 풀린다.
+   *
+   * 길게 그은 획을 점으로 쳐 주지 않도록 그은 자리의 크기도 함께 본다.
+   */
+  if (data.strokes[i].dot) {
+    const near0 = Math.max(startTol, sw * g.scale * 1.2);
+    if (Math.hypot(u0.x - gs.x, u0.y - gs.y) > near0) return false;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    user.forEach(p => {
+      if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x;
+      if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y;
+    });
+    return Math.hypot(x1 - x0, y1 - y0) <= sw * g.scale * 2.5;
+  }
+
+  if (user.length < 2) return false;
   if (Math.hypot(u0.x - gs.x, u0.y - gs.y) > startTol) return false;
 
   /*
