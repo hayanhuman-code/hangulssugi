@@ -143,32 +143,72 @@ function reducedMotion() {
 
 // ---------- 읽어주기 (Web Speech API) ----------
 // 한글 학습에서 소릿값은 핵심이라 글자·이름·단어를 눌러 들을 수 있게 한다.
-const TTS = { voice: null, ready: false };
+// 알파벳은 영어 목소리로 읽어야 "에이"가 아니라 A 로 들린다.
+const TTS = { voices: {}, ready: false };
 
-function pickKoreanVoice() {
+function pickVoices() {
   if (!('speechSynthesis' in window)) return;
   const voices = window.speechSynthesis.getVoices() || [];
-  TTS.voice = voices.find(v => v.lang === 'ko-KR') ||
-              voices.find(v => (v.lang || '').toLowerCase().indexOf('ko') === 0) || null;
+  // 기기마다 ko_KR · en_GB 처럼 적기도 한다. 정확히 맞는 것을 먼저,
+  // 없으면 같은 언어의 아무 목소리나 쓴다.
+  const pick = (exact, prefix) => {
+    const norm = v => (v.lang || '').replace('_', '-').toLowerCase();
+    return voices.find(v => norm(v) === exact) ||
+           voices.find(v => norm(v).indexOf(prefix) === 0) || null;
+  };
+  TTS.voices['ko-KR'] = pick('ko-kr', 'ko');
+  TTS.voices['en-US'] = pick('en-us', 'en');
   TTS.ready = voices.length > 0;
 }
+function hasVoice(lang) { return !!TTS.voices[lang]; }
 
-function speak(text, el) {
+// 말 한 마디. 강조는 큐에 넣을 때가 아니라 실제로 읽기 시작할 때 켠다 —
+// 두 마디를 잇달아 읽을 때 둘째 마디는 몇 초 뒤에야 시작한다.
+function makeUtterance(text, lang, el) {
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang;
+  // 영어 목소리는 같은 속도에서도 빠르게 들려 한 단계 더 늦춘다.
+  u.rate = lang === 'en-US' ? 0.8 : 0.85;   // 4세가 따라올 수 있는 속도
+  u.pitch = lang === 'en-US' ? 1.1 : 1.2;   // 부드럽고 높은 톤
+  const v = TTS.voices[lang];
+  if (v) u.voice = v;
+  if (el) {
+    const off = () => el.classList.remove('speaking');
+    u.onstart = () => { el.classList.add('speaking'); later(off, 4000); };
+    u.onend = off; u.onerror = off;
+  }
+  return u;
+}
+
+function speak(text, el, lang) {
   if (!text || !('speechSynthesis' in window)) return;
   const synth = window.speechSynthesis;
   synth.cancel();                       // 연타해도 겹쳐 읽지 않게
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'ko-KR';
-  u.rate = 0.85;                        // 4세가 따라올 수 있는 속도
-  u.pitch = 1.2;                        // 부드럽고 높은 톤
-  if (TTS.voice) u.voice = TTS.voice;
-  if (el) {
-    el.classList.add('speaking');
-    const off = () => el.classList.remove('speaking');
-    u.onend = off; u.onerror = off;
-    later(off, 4000);                   // 이벤트가 안 오는 브라우저 대비
-  }
-  try { synth.speak(u); } catch (e) { /* 지원 안 하면 조용히 넘어간다 */ }
+  try { synth.speak(makeUtterance(text, lang || 'ko-KR', el)); }
+  catch (e) { /* 지원 안 하면 조용히 넘어간다 */ }
+}
+
+/*
+ * 여러 마디를 잇달아 읽는다 ("Apple" 다음에 "사과").
+ * 중간에 cancel 을 끼우면 앞 마디가 잘리므로, 한 번만 비우고 큐에 쌓는다.
+ *
+ * 없는 언어는 우리말로 갈아탄다. 영어 목소리가 없는 기기에 라틴 글자를
+ * 그대로 넘기면 우리말 목소리가 철자를 읽거나 뭉개 버린다 — 그래서
+ * 각 마디는 대신 읽을 우리말(alt)을 함께 들고 다닌다.
+ */
+function speakParts(parts, el) {
+  if (!parts || !parts.length || !('speechSynthesis' in window)) return;
+  const synth = window.speechSynthesis;
+  synth.cancel();
+  parts.forEach(part => {
+    // 우리말은 목소리 목록이 비어 있어도 그대로 넘긴다 — 브라우저가 기본
+    // 목소리로 읽는다. 갈아타는 건 우리말 목소리에 맡길 수 없는 말뿐이다.
+    const usable = (part.lang === 'ko-KR' || hasVoice(part.lang))
+      ? part
+      : { text: part.alt || '', lang: 'ko-KR' };
+    if (!usable.text) return;
+    try { synth.speak(makeUtterance(usable.text, usable.lang, el)); } catch (e) { /* 넘어간다 */ }
+  });
 }
 
 // 버튼에서 부르는 진입점 (텍스트는 STATE에서 그때그때 만든다)
@@ -194,16 +234,19 @@ function speakNumber(kind) {
   if (pair && pair[0]) { unlockAudio(); speak(pair[0], pair[1]); }
 }
 
-// 알파벳 — 글자 이름과 대표 단어. (지금은 우리말 음성으로 읽고,
-// 영어 음성 연결은 뒤에서 한다.)
+// 알파벳 — 글자 이름은 영어로, 대표 단어는 영어로 읽고 뜻을 우리말로 잇는다.
+// 영어 목소리가 없는 기기에서는 우리말 이름(에이)과 우리말 발음(애플)으로 읽는다.
 function speakAlphabet(kind, data) {
+  const en = t => ({ text: t, lang: 'en-US' });
+  const ko = t => ({ text: t, lang: 'ko-KR' });
   const map = {
-    ko:     [data.ko, document.getElementById('infoKo')],
-    num:    [data.ko, document.getElementById('infoNum')],
-    object: [data.wordKo, document.querySelector('.obj-caption')]
+    ko:     [[Object.assign(en(data.en), { alt: data.ko })], document.getElementById('infoKo')],
+    num:    [[Object.assign(en(data.en), { alt: data.ko })], document.getElementById('infoNum')],
+    object: [[Object.assign(en(data.word), { alt: data.sayEn }), ko(data.wordKo)],
+             document.querySelector('.obj-caption')]
   };
   const pair = map[kind];
-  if (pair && pair[0]) { unlockAudio(); speak(pair[0], pair[1]); }
+  if (pair) { unlockAudio(); speakParts(pair[0], pair[1]); }
 }
 
 // "사과 3개"가 아니라 "사과 세 개"로 읽어준다.
@@ -1654,8 +1697,8 @@ window.addEventListener('load', () => {
 
   // 읽어주기 음성 목록은 비동기로 채워진다
   if ('speechSynthesis' in window) {
-    pickKoreanVoice();
-    window.speechSynthesis.addEventListener('voiceschanged', pickKoreanVoice);
+    pickVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', pickVoices);
   }
 
   // 정보 패널의 눌러 듣기
