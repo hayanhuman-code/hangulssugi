@@ -1,10 +1,10 @@
 // ============================================================
-// 5살 아이 쓰기 연습 앱 — 숫자와 한글
+// 5살 아이 쓰기 연습 앱 — 숫자와 한글과 알파벳
 //
-// 숫자와 한글은 항목 형태가 같다.
+// 셋 다 항목 형태가 같다.
 //   { id, category, ko, color, bgColor, strokeWidth, viewBox, strokes:[{ d, start }] }
-// 그래서 캔버스·획순 데모·그리기는 둘을 구분하지 않는다. 갈라지는 곳은
-// 홈 화면의 카테고리 탭과, 왼쪽 정보 패널의 내용 두 군데뿐이다.
+// 그래서 캔버스·획순 데모·그리기는 셋을 구분하지 않는다. 갈라지는 곳은
+// 홈 화면의 카테고리 탭, 왼쪽 정보 패널의 내용, 읽어주기의 언어 세 군데뿐이다.
 // ============================================================
 
 // ---------- 진도 ----------
@@ -47,12 +47,17 @@ const STATE = {
 };
 
 // ---------- 배울 것 목록 ----------
-// 숫자 탭은 이 파일이, 한글 네 탭은 hangul-data.js 가 채운다.
+// 숫자 탭은 이 파일이, 한글 네 탭은 hangul-data.js 가, 알파벳 두 탭은
+// alphabet-data.js 가 채운다.
 const CATEGORIES = (function () {
   const list = [{ key: 'number', label: '숫자', icon: '123', color: '#1B7FD4', bgColor: '#D4E9FA' }];
   const H = window.HANGUL_CATEGORY || {};
   ['consonant', 'vowel', 'syllable', 'word'].forEach(k => {
     if (H[k]) list.push(Object.assign({ key: k }, H[k]));
+  });
+  const A = window.ALPHABET_CATEGORY || {};
+  ['upper', 'lower'].forEach(k => {
+    if (A[k]) list.push(Object.assign({ key: k }, A[k]));
   });
   return list;
 })();
@@ -74,12 +79,16 @@ function itemsOf(category) {
     for (let n = 0; n <= 20; n++) out.push(window.NUMBER_DATA[n]);
     return out;
   }
+  if (window.ALPHABET_ORDER && window.ALPHABET_ORDER[category]) {
+    return window.ALPHABET_ORDER[category].map(id => window.ALPHABET_DATA[id]);
+  }
   const order = (window.HANGUL_ORDER && window.HANGUL_ORDER[category]) || [];
   return order.map(id => window.HANGUL_DATA[id]);
 }
 
 function itemById(id) {
   if (window.HANGUL_DATA && window.HANGUL_DATA[id]) return window.HANGUL_DATA[id];
+  if (window.ALPHABET_DATA && window.ALPHABET_DATA[id]) return window.ALPHABET_DATA[id];
   return window.NUMBER_DATA[id] || null;
 }
 
@@ -97,6 +106,9 @@ function partCount() {
   return item && item.parts ? item.parts.length : 1;
 }
 function isNumberItem(item) { return !!item && item.category === 'number'; }
+function isAlphabetItem(item) {
+  return !!item && (item.category === 'upper' || item.category === 'lower');
+}
 
 // 앞 항목을 한 번이라도 끝내야 다음이 열린다. 다만 첫 화면이 자물쇠뿐이지
 // 않도록 각 탭의 앞 몇 개는 처음부터 열어 둔다.
@@ -165,6 +177,8 @@ function speakNumber(kind) {
   if (!data) return;
   // 한글은 이름(기역)과 소리(그)가 다르다. 큰 글자를 누르면 소리를, 이름을
   // 누르면 이름을 읽어 준다. 단어는 셋이 모두 같은 말이다.
+  // 알파벳은 영어 음성이 읽는다 — 언어까지 함께 정해 speakParts 로 넘긴다.
+  if (isAlphabetItem(data)) { speakAlphabet(kind, data); return; }
   const map = isNumberItem(data) ? {
     ko:     [data.ko, document.getElementById('infoKo')],
     native: [data.native, document.getElementById('infoNative')],
@@ -175,6 +189,18 @@ function speakNumber(kind) {
     native: [data.ko, document.getElementById('infoNative')],
     num:    [data.say, document.getElementById('infoNum')],
     object: [data.word, document.querySelector('.obj-caption')]
+  };
+  const pair = map[kind];
+  if (pair && pair[0]) { unlockAudio(); speak(pair[0], pair[1]); }
+}
+
+// 알파벳 — 글자 이름과 대표 단어. (지금은 우리말 음성으로 읽고,
+// 영어 음성 연결은 뒤에서 한다.)
+function speakAlphabet(kind, data) {
+  const map = {
+    ko:     [data.ko, document.getElementById('infoKo')],
+    num:    [data.ko, document.getElementById('infoNum')],
+    object: [data.wordKo, document.querySelector('.obj-caption')]
   };
   const pair = map[kind];
   if (pair && pair[0]) { unlockAudio(); speak(pair[0], pair[1]); }
@@ -298,14 +324,19 @@ const PAGE_SHAPE = {
   consonant: { cls: 'cols-7', per: 21 },
   vowel:     { cls: 'cols-7', per: 21 },
   syllable:  { cls: 'cols-5', per: 15 },
-  word:      { cls: 'cols-4', per: 16 }
+  word:      { cls: 'cols-4', per: 16 },
+  // 26자 — 높이가 넉넉하면 7×4 로 한 쪽에 다 들어간다
+  upper:     { cls: 'cols-7', per: 28 },
+  lower:     { cls: 'cols-7', per: 28 }
 };
 const PAGE_SHAPE_NARROW = {
   number:    { cls: 'cols-4' },
   consonant: { cls: 'cols-4' },
   vowel:     { cls: 'cols-4' },
   syllable:  { cls: 'cols-3' },
-  word:      { cls: 'cols-2' }
+  word:      { cls: 'cols-2' },
+  upper:     { cls: 'cols-4' },
+  lower:     { cls: 'cols-4' }
 };
 // 태블릿을 세로로 세우면 폭이 절반이 된다. 폰만큼 좁지는 않으니 한 단계만 줄인다.
 const PAGE_SHAPE_PORTRAIT = {
@@ -313,7 +344,9 @@ const PAGE_SHAPE_PORTRAIT = {
   consonant: { cls: 'cols-5' },
   vowel:     { cls: 'cols-5' },
   syllable:  { cls: 'cols-4' },
-  word:      { cls: 'cols-2' }
+  word:      { cls: 'cols-2' },
+  upper:     { cls: 'cols-5' },
+  lower:     { cls: 'cols-5' }
 };
 
 // CSS 의 화면 분기와 같은 조건을 쓴다. 한쪽만 바뀌면 열이 어긋난다.
@@ -574,6 +607,8 @@ function closeWordSheet() {
 function cardLabel(data, stars, open) {
   const what = isNumberItem(data)
     ? `숫자 ${data.id}, ${data.ko}${data.native ? ' 또는 ' + data.native : ''}, ${objectPhrase(data)}`
+    : isAlphabetItem(data)
+    ? `알파벳 ${data.id}, ${data.ko}, ${data.word} ${data.wordKo}`
     : `${data.id}, ${data.ko}`;
   return open ? `${what}, 별 ${stars}개 모음` : `${what}, 아직 잠겨 있어요`;
 }
@@ -642,6 +677,17 @@ function renderInfoPanel(data) {
     return;
   }
 
+  // 알파벳 — 이름(에이)과 대표 단어(Apple 사과)를 보여 준다.
+  if (isAlphabetItem(data)) {
+    numEl.setAttribute('aria-label', `${data.id}, ${data.ko}. 눌러서 소리 듣기`);
+    koEl.textContent = data.ko;
+    koEl.setAttribute('aria-label', `${data.ko}. 눌러서 소리 듣기`);
+    natEl.style.display = 'none';
+    enEl.style.display = 'none';
+    renderExampleWord(data, data.wordKo);
+    return;
+  }
+
   // 한글 — 이름(기역)과 대표 단어(가방)를 보여 준다.
   numEl.setAttribute('aria-label', `${data.id}. 눌러서 소리 듣기`);
   koEl.textContent = data.ko === data.id ? data.say : data.ko;
@@ -677,8 +723,9 @@ function renderCountingObjects(data) {
     objectPhrase(data)));
 }
 
-// 한글 — 그 글자가 들어간 대표 단어 하나
-function renderExampleWord(data) {
+// 한글·알파벳 — 그 글자가 들어간 대표 단어 하나.
+// sub 를 주면 단어 아래 뜻을 한 줄 더 붙인다 (Apple / 사과).
+function renderExampleWord(data, sub) {
   const objs = document.getElementById('infoObjects');
   objs.classList.remove('zero');
   objs.innerHTML = '';
@@ -688,14 +735,20 @@ function renderExampleWord(data) {
     e.textContent = data.emoji;
     objs.appendChild(e);
   }
-  objs.appendChild(speakableCaption(data.word, data.word));
+  objs.appendChild(speakableCaption(data.word, sub ? `${data.word}, ${sub}` : data.word, sub));
 }
 
-function speakableCaption(text, label) {
+function speakableCaption(text, label, sub) {
   const caption = document.createElement('button');
   caption.type = 'button';
   caption.className = 'obj-caption speakable';
   caption.textContent = text;
+  if (sub) {
+    const line = document.createElement('span');
+    line.className = 'cap-sub';
+    line.textContent = sub;
+    caption.appendChild(line);
+  }
   caption.setAttribute('aria-label', `${label}. 눌러서 소리 듣기`);
   caption.addEventListener('click', () => speakNumber('object'));
   return caption;
