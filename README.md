@@ -1,9 +1,11 @@
-# Handoff: Writing Practice (한글·숫자 쓰기 연습)
+# Handoff: Writing Practice (한글·숫자·알파벳 쓰기 연습)
 
 ## Overview
-A touch-first learning app for **5-year-old children** to practice writing numbers 0–20 and Hangul — 19 consonants, 21 vowels, 15 syllables and 36 words. Every item follows the same **3-step learning flow**: (1) See the shape and (for numbers) count real objects, (2) Trace along a dotted guide with a finger, (3) Write freely with only a faint guide. Successful completion awards star stickers with sound + confetti feedback, and progress is persisted per item.
+A touch-first learning app for **5-year-old children** to practice writing numbers 0–20, Hangul — 19 consonants, 21 vowels, 15 syllables and 36 words — and the English alphabet, 26 capitals and 26 lowercase letters. Every item follows the same **3-step learning flow**: (1) See the shape and (for numbers) count real objects, (2) Trace along a dotted guide with a finger, (3) Write freely with only a faint guide. Successful completion awards star stickers with sound + confetti feedback, and progress is persisted per item.
 
-Numbers and Hangul share one item shape — `{ id, category, ko, color, bgColor, strokeWidth, viewBox, strokes:[{ d, start }] }` — so the canvas, the stroke-order demo and the drawing surface never branch on which is which. Only two places differ: the category tabs on the home screen, and the contents of the left info panel.
+Numbers, Hangul and the alphabet share one item shape — `{ id, category, ko, color, bgColor, strokeWidth, viewBox, strokes:[{ d, start }] }` — so the canvas, the stroke-order demo and the drawing surface never branch on which is which. Only three places differ: the category tabs on the home screen, the contents of the left info panel, and the language the item is read in.
+
+Alphabet items carry four fields of their own: `en` (the letter name an English voice reads), `word` / `wordKo` (the example word and its Korean meaning), and `sayEn` (the Korean transliteration a Korean voice falls back to). A stroke may also carry `dot: true` — see *Validation*.
 
 Primary target device: **iPad / tablet in landscape**, finger touch input. Secondary: desktop with mouse.
 
@@ -27,13 +29,13 @@ Preserve the interaction model, motion timing, and visual hierarchy. Substitute 
 - **Header row** (space-between, 20px margin-bottom):
   - Left: title "오늘은 뭐 써 볼까?" (What shall we write today?) — 34px, weight 800, `#3B3226`. One flat colour, no gradient: the screen already carries five coloured tabs and twenty-one coloured cards.
   - Right: total star counter — `#F5B324` pill, 64px tall, 999px radius, 30px text, star icon, `0 6px 0 rgba(90,74,56,.14)`.
-- **Category tabs** (5, flex row, 12px gap, 72px tall, 999px radius): 숫자 / 자음 / 모음 / 글자 / 단어.
+- **Category tabs** (7, flex row, 72px tall, 999px radius): 숫자 / 자음 / 모음 / 글자 / 단어 / 대문자 / 소문자. On a phone they wrap to two rows (4 + 3); one row of seven would make each tab narrower than a four-year-old's fingertip.
   - Inactive: the category's soft tint as the fill, its deep colour as the text.
   - Active: deep fill, white text, deeper offset shadow.
-  - Each carries a white rounded chip with a text mark (`123`, `ㄱㄴ`, `ㅏㅗ`, `가`, `나비`) — text, not emoji, so the five read as one family on every platform.
+  - Each carries a white rounded chip with a text mark (`123`, `ㄱㄴ`, `ㅏㅗ`, `가`, `나비`, `ABC`, `abc`) — text, not emoji, so the seven read as one family on every platform.
 - **Card grid — horizontal paging, not vertical scroll.** A four-year-old handles a page swipe far better than a scroll, and a list that scrolls hides its tail (the parent's "단어 넣기" card used to sit permanently off-screen).
   - `.grid-viewport` clips; `.grid-track` holds one `.grid-page` per page and translates by whole pages (260ms cubic-bezier(.22,.61,.36,1)).
-  - Page shapes follow the item count: 숫자·자음·모음 → 7 × 3 (21/page); 글자 → 5 × 3 (15/page); 단어 → 4 × 4 (16/page). 20px gap.
+  - Page shapes follow the item count: 숫자·자음·모음 → 7 × 3 (21/page); 글자 → 5 × 3 (15/page); 단어 → 4 × 4 (16/page); 대문자·소문자 → 7 × 4 (28/page, so 26 letters fit one page where the height allows). 20px gap.
   - Dots below the grid show the page count and are tappable; they hide entirely when there is only one page.
   - Dragging the grid also pages it. A drag over 12px sets `STATE.swiped`, which the card's own click handler checks — otherwise every swipe that started on a card would open it.
 
@@ -140,8 +142,10 @@ Every deferred callback goes through `later(fn, ms)`, which records the id in `S
 ### Speech (Web Speech API)
 Hearing the sound of a glyph is the core of learning to read Korean, so it is a first-class feature rather than an accessibility afterthought.
 
-- `speak(text, el)` — `ko-KR`, **rate 0.85** (slow enough for a four-year-old to follow), **pitch 1.2** (warm, high). A Korean voice is picked from `speechSynthesis.getVoices()`, re-picked on `voiceschanged` since the list populates asynchronously. Any previous utterance is `cancel()`ed first so rapid tapping doesn't stack.
-- The element being read gets a `.speaking` highlight, cleared on `end`/`error` plus a 4s timer fallback for browsers that never fire those.
+- `speak(text, el, lang)` — defaults to `ko-KR`, **rate 0.85** (slow enough for a four-year-old to follow), **pitch 1.2** (warm, high). English uses rate 0.8 / pitch 1.1: the same numbers sound rushed in an English voice. One voice per language is picked from `speechSynthesis.getVoices()` (exact `ko-KR`/`en-US` first, then any voice of that language — some devices report `ko_KR` or `en_GB`), re-picked on `voiceschanged` since the list populates asynchronously. Any previous utterance is `cancel()`ed first so rapid tapping doesn't stack.
+- `speakParts(parts, el)` chains utterances — "Apple", then "사과". They are queued after **one** `cancel()`; a `cancel()` between them cuts the first one off.
+- **Alphabet falls back to Korean.** English is used only where the device lists an `en*` voice. Otherwise the Korean voice reads the letter name as `ko` (에이) and the word as `sayEn` (애플); the meaning is Korean either way. Latin text is never handed to a Korean voice — it gets spelled out or garbled. Korean parts are always spoken as they are, even when the voice list is empty, so the browser's default voice still reads them.
+- The element being read gets a `.speaking` highlight, added on `start` (not when queued — the second utterance of a pair may begin seconds later) and cleared on `end`/`error` plus a 4s timer fallback for browsers that never fire those.
 - **Tappable:** the big glyph, the Sino-Korean name, the native name, the object caption, and the round "소리 듣기" button fixed at the bottom of the info panel — the same place in all three steps.
 - Counts are spoken with the **counter form**, not the numeral: "사과 세 개", never "사과 삼개". That is what `counter` in the number data is for.
 - Entering a number speaks its name once; moving between steps does not repeat it. Going home cancels any speech in flight.
@@ -158,6 +162,14 @@ Simple synthesized tones — replace with your codebase's audio library (AVAudio
 
 ### Validation ("did they really try?")
 Deliberately lenient for 5-year-olds. Do **not** compare stroke shape to the guide.
+
+**Dot strokes.** A tap produces a single point, so there is no direction to measure and the
+start/end comparison is meaningless — `i` and `j` could never pass however accurately they were
+dotted. A stroke marked `dot: true` in the data is judged on position alone (start within
+tolerance, and the drawn area no larger than 2.5 stroke widths, so a long stroke is not accepted
+as a dot). The flag lives in the data rather than being inferred from length because ㅊ and ㅎ's
+top tick is itself only about one stroke width long; treating that as a dot would undo the
+direction rule it was given in the first place.
 - Sum the total points across all user strokes.
 - If `totalPoints < 15`, show encouragement badge "조금 더 그려볼까요?" (Let's draw a bit more) instead of completing.
 - Otherwise, count it as complete.
@@ -244,6 +256,8 @@ tint (inactive tab, card border, emoji chip). Every deep colour clears 4.5:1 aga
 | 모음 | `#0E7D66` | `#D2F3E8` | 4.98 |
 | 글자 | `#7B4FC0` | `#EADFFB` | 5.55 |
 | 단어 | `#A9640A` | `#FFEBCF` | 4.58 |
+| 대문자 | `#C4306E` | `#FDDCEA` | 5.17 |
+| 소문자 | `#3D7D19` | `#E3F3CF` | 4.98 |
 
 단어 is the one exception to "deep colour fills the active tab": at full tab size `#A9640A` sinks
 into a muddy brown next to the other four, so the tab fill alone uses `#B87007` (`tabColor`, 3.92
@@ -369,8 +383,9 @@ Bundled in this handoff:
 - `app.js` — all state, screen rendering, drawing canvas, SVG guide generation, stroke-order animation, sound synthesis, progress persistence.
 - `number-data.js` — the 21 number definitions (stroke paths, colors, Korean/English names, count emojis).
 - `hangul-data.js` — the stroke data for 19 consonants and 21 vowels, the composition rules that build any syllable from them, and the 91 curriculum items across four categories.
+- `alphabet-data.js` — 26 capitals and 26 lowercase letters on the same 200 cell, their Korean names, example words and Korean meanings. Loads after `number-data.js`: it centres each glyph with that file's `PATH_UTIL`.
 - `custom-words.js` — words a parent types in (the child's name, family names), validated and stored in `localStorage.customWords`, appended to the word tab.
-- `docs/glyph-sheet.html` — every Hangul item drawn in stroke order on one page. Open it in a browser after touching the letter shapes or the composition boxes.
+- `docs/glyph-sheet.html` — every Hangul, alphabet and number item drawn in stroke order on one page, with the alphabet's four ruled lines behind each letter and a red cell for any glyph whose ink leaves its own viewBox. Open it in a browser after touching the letter shapes, the composition boxes or the alphabet metrics.
 - `docs/화면시안-v2.dc.html` — the design reference this build follows: palette, type scale, shadow
   set, button sizes, the three-layer guide, and the grid rules.
 - `docs/디자인-개선-검토.md` — the review that produced Stage F: what the build looked like before,
@@ -562,6 +577,32 @@ git-ignored; regenerate it rather than committing it.
   129px 까지 눌렸다. 세로 블록에는 배치만 남기고 크기는 태블릿 전용 블록으로 옮겼다.
 - 폰의 정보 패널이 화면의 3분의 1을 먹고 있었다. 뜻 그림과 설명을 줄여 그 높이를 캔버스에
   돌려줬다 — 정보 패널 170 → 97px, 캔버스는 아이폰에서 282 → 355px, SE 에서 129 → 246px.
+
+### Stage I: 알파벳
+
+대문자 26 · 소문자 26 을 숫자·한글과 같은 200 셀에 얹었다. 항목 형태가 같아 캔버스·획순
+데모·따라쓰기는 그대로 쓰고, 홈 탭 · 정보 패널 · 읽어주기 세 군데만 갈라진다.
+
+- **네 줄 공책을 좌표로 옮겼다.** 대문자는 숫자와 같은 줄(윗선 35 · 밑선 175)이라 숫자와
+  나란히 놓아도 키가 맞는다. 소문자는 어센더 35 · x선 70 · 밑선 150 · 디센더 185 다.
+  소문자 밑선이 대문자보다 25 높은 것은 밑선을 175 로 맞추면 g·j·p·q·y 의 꼬리가 내려갈
+  자리가 10 밖에 남지 않기 때문이다. 26 자를 한 장의 공책에 얹는 쪽을 택했다 — 글자는 늘
+  카드 한 칸에 혼자 나오므로 두 밑선이 나란히 보이는 일이 없다. 대신 x-높이 글자(a·c·e)는
+  카드에서 대문자보다 작게 보인다. 실제 글씨의 비율이 그렇다.
+- **소문자 획 두께는 24** (음절과 같다). 30 으로 그리면 e 의 눈이 막힌다 — 위 곡선의 잉크와
+  가로획의 잉크 사이가 5 밖에 벌어지지 않았다.
+- **되돌아 긋지 않는 것을 획순 원칙으로 삼았다.** 채점기가 역방향 획을 거부하기 때문이다.
+  기둥을 올라갔다 내려오는 b·h·m·n·p·r 은 기둥 획과 아치 획으로 나눴고, 아치는 기둥 위에서
+  출발한다(숫자 5 의 두 획과 같은 자리). u 만 교재의 표준대로 오른쪽을 덧긋는다.
+  닫힌 원(O·o)은 숫자 0·ㅇ 과 같이 12시에서 반시계로 돈다 — 아이가 이미 익힌 손놀림이다.
+- **점 획을 채점기가 받도록 했다** — 위 *Validation* 참고.
+- **대표 단어는 대·소문자가 나눠 쓴다.** X 만 첫소리가 아니다: 네 살이 아는 X 로 시작하는
+  말이 없어(x-ray·xylophone) 미국 파닉스 교재가 쓰는 fox 🦊 를 쓴다.
+- **읽어주기가 언어를 갖게 됐다** — 위 *Speech* 참고. 이전에는 `ko-KR` 하나에 박혀 있었다.
+- **탭이 다섯에서 일곱으로 늘었다.** 세 화면 분기의 글자·아이콘을 줄였고, 폰에서는 두
+  줄(4+3)로 접는다. 카드 줄 수는 `rowsFor()` 가 남은 높이에서 다시 잡으므로 접힌 만큼
+  그리드가 알아서 줄어든다.
+- 진도 키가 항목 id 라 `'A'`·`'a'` 가 숫자·한글 키와 겹치지 않는다. 옮길 것이 없었다.
 
 ### Known gaps
 - Screen-reader coverage is partial: home cards and the main controls have labels, but the
