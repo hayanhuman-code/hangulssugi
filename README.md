@@ -1,7 +1,7 @@
 # Handoff: Writing Practice (한글·숫자·알파벳 쓰기 연습)
 
 ## Overview
-A touch-first learning app for **5-year-old children** to practice writing numbers 0–20, Hangul — 19 consonants, 21 vowels, 15 syllables and 36 words — and the English alphabet, 26 capitals and 26 lowercase letters. Every item follows the same **3-step learning flow**: (1) See the shape and (for numbers) count real objects, (2) Trace along a dotted guide with a finger, (3) Write freely with only a faint guide. Successful completion awards star stickers with sound + confetti feedback, and progress is persisted per item.
+A touch-first learning app for **5-year-old children** to practice writing numbers 0–20, Hangul — 19 consonants, 21 vowels, 15 syllables and 36 words — and the English alphabet, 26 capitals and 26 lowercase letters. Every item follows the same **3-step learning flow**: (1) See the shape and (for numbers) count real objects, (2) Trace along a dotted guide with a finger, (3) Write freely with only a faint guide. Successful completion awards star stickers with sound + confetti feedback, and progress is persisted per item **per person** — one tablet holds several children, each with their own stars and their own locks.
 
 Numbers, Hangul and the alphabet share one item shape — `{ id, category, ko, color, bgColor, strokeWidth, viewBox, strokes:[{ d, start }] }` — so the canvas, the stroke-order demo and the drawing surface never branch on which is which. Only three places differ: the category tabs on the home screen, the contents of the left info panel, and the language the item is read in.
 
@@ -28,7 +28,9 @@ Preserve the interaction model, motion timing, and visual hierarchy. Substitute 
 - Full-viewport container, flat cream background `#FFF8EE`, 36px padding all round.
 - **Header row** (space-between, 20px margin-bottom):
   - Left: title "오늘은 뭐 써 볼까?" (What shall we write today?) — 34px, weight 800, `#3B3226`. One flat colour, no gradient: the screen already carries five coloured tabs and twenty-one coloured cards.
-  - Right: total star counter — `#F5B324` pill, 64px tall, 999px radius, 30px text, star icon, `0 6px 0 rgba(90,74,56,.14)`.
+  - Middle: **who-chip** — a white 64px pill with a 3px `#E7DDCC` border holding the current person's animal face and name. It is the only always-visible sign of whose turn it is; tapping it opens the person sheet. Deliberately uncoloured — a second coloured pill next to the yellow star counter reads as a tab.
+  - Right: total star counter — `#F5B324` pill, 64px tall, 999px radius, 30px text, star icon, `0 6px 0 rgba(90,74,56,.14)`. It counts the **current person's** stars.
+  - On a phone the three share one row: the greeting drops to 20px so nothing is truncated at 360px.
 - **Category tabs** (7, flex row, 72px tall, 999px radius): 숫자 / 자음 / 모음 / 글자 / 단어 / 대문자 / 소문자. On a phone they wrap to two rows (4 + 3); one row of seven would make each tab narrower than a four-year-old's fingertip.
   - Inactive: the category's soft tint as the fill, its deep colour as the text.
   - Active: deep fill, white text, deeper offset shadow.
@@ -212,9 +214,16 @@ Global app state:
 - `currentStroke: Stroke | null` — the stroke currently being extended.
 - `timers: number[]` — live `setTimeout` ids, cancelled wholesale on navigation.
 - `demoPlaying: boolean` / `demoToken: number` — stroke-demo playback guard.
-- `progress: { [itemId: string]: 0|1|2|3 }` — best star count earned per item, persisted to `localStorage.writingProgress`. Number ids are `'0'`–`'20'` and Hangul ids are the characters themselves, so the two never collide; a pre-existing `localStorage.numberProgress` is read once and carried over.
+- `progress: { [itemId: string]: 0|1|2|3 }` — best star count earned per item **by the person currently using the app**, persisted to `localStorage['writingProgress:' + profileId]`. Number ids are `'0'`–`'20'` and Hangul ids are the characters themselves, so the two never collide.
 
-Persistence: on `saveProgress(id, stars)`, write `progress[id] = max(progress[id], stars)` back to localStorage. In a native app, use secure key-value storage (UserDefaults / AsyncStorage / SharedPreferences).
+**People (profiles).** One tablet is shared by siblings, so stars and locks are kept per person, not per device. `profiles.js` owns the whole store and is the only file that touches these keys:
+- `localStorage.writingProfiles` — `{ v, current, list: [{ id, name, emoji }] }`. Up to 6 people, names up to 6 characters, faces picked from a fixed set of 8 animal emoji.
+- `localStorage['writingProgress:<id>']` — that person's `progress` map. Deleting a person deletes exactly one key; nobody else's stars can be touched.
+- Migration: a browser that used the version without people keeps its stars — the old `writingProgress` (or the older `numberProgress`) is copied once into the first person's key and left in place, not moved.
+- Switching person swaps `STATE.progress` wholesale and re-renders the home screen from page 0, because the set of unlocked items changes with it.
+- Custom words (`localStorage.customWords`) stay device-wide — the family word list is shared by everyone on the tablet.
+
+Persistence: on `saveProgress(id, stars)`, write `progress[id] = max(progress[id], stars)` back through `Profiles.saveProgress()`. In a native app, use secure key-value storage (UserDefaults / AsyncStorage / SharedPreferences), keyed the same way. Nothing leaves the device — there is no account and no server, so a child's name never travels.
 
 **Locking.** Within a tab, an item opens once the item before it has earned at least one star; the first `HEAD_START` (3) of every tab start open so the first screen is never a wall of padlocks. A locked card sinks flat (no shadow, glyph at 35% opacity, a small 🔒), and tapping it bounces gently and says "다음에 만나요" — no red, no grey alarm tone, no shake.
 
@@ -384,6 +393,7 @@ Bundled in this handoff:
 - `number-data.js` — the 21 number definitions (stroke paths, colors, Korean/English names, count emojis).
 - `hangul-data.js` — the stroke data for 19 consonants and 21 vowels, the composition rules that build any syllable from them, and the 91 curriculum items across four categories.
 - `alphabet-data.js` — 26 capitals and 26 lowercase letters on the same 200 cell, their Korean names, example words and Korean meanings. Loads after `number-data.js`: it centres each glyph with that file's `PATH_UTIL`.
+- `profiles.js` — who is writing: the person list, the current person, and each person's progress map in `localStorage`, plus the one-time migration from the single-person store.
 - `custom-words.js` — words a parent types in (the child's name, family names), validated and stored in `localStorage.customWords`, appended to the word tab.
 - `docs/glyph-sheet.html` — every Hangul, alphabet and number item drawn in stroke order on one page, with the alphabet's four ruled lines behind each letter and a red cell for any glyph whose ink leaves its own viewBox. Open it in a browser after touching the letter shapes, the composition boxes or the alphabet metrics.
 - `docs/화면시안-v2.dc.html` — the design reference this build follows: palette, type scale, shadow
@@ -393,7 +403,7 @@ Bundled in this handoff:
 
 ## Running It
 
-The prototype is a **static site with no build step** — three files, no dependencies, works offline.
+The prototype is a **static site with no build step** — one HTML file and its scripts, no dependencies, works offline.
 
 ### Locally
 ```bash
@@ -610,6 +620,31 @@ git-ignored; regenerate it rather than committing it.
     카드가 설 자리가 없다. 780px 아래 가로 화면에서는 글자를 더 줄이는 대신 아이콘 칩을
     뺀다 — 15px 로 내려간 이름표는 네 살이 읽지 못한다.
 - 진도 키가 항목 id 라 `'A'`·`'a'` 가 숫자·한글 키와 겹치지 않는다. 옮길 것이 없었다.
+
+### Stage J: 쓰는 사람 구분
+
+태블릿 한 대를 형제가 나눠 쓰면 별과 자물쇠가 한 칸에 섞였다. 진도를 사람마다 따로 담는다.
+
+- **`profiles.js` 가 저장을 통째로 맡는다.** `writingProfiles` 에 사람 목록과 지금 차례를,
+  `writingProgress:<id>` 에 사람별 진도를 담는다. 한 사람을 지우는 일이 키 하나를 지우는
+  일이라, 다른 사람의 별에 손이 닿지 않는다. 서버는 없다 — 아이 이름은 기기 밖으로 나가지
+  않는다.
+- **예전 기록은 첫 사람이 물려받는다.** 사람 구분이 없던 판의 `writingProgress`(그보다 앞선
+  `numberProgress`)를 첫 사람의 칸으로 복사한다. 옮기지 않고 복사만 한다 — 아이가 몇 달에
+  걸쳐 모은 별이라 원본을 지울 이유가 없다.
+- **홈 머리말에 이름칩이 선다.** 지금 누구 차례인지 늘 보이지 않으면, 형이 동생 이름으로
+  한 쪽을 다 쓰고 나서야 알아차린다. 누르면 '누가 쓸까요?' 시트가 열린다.
+- **시트는 아이 자리와 부모 자리가 나뉜다.** 위쪽 큰 카드는 아이가 제 얼굴을 보고 고르는
+  자리(별 개수도 함께 보인다), 아래쪽 줄은 부모가 이름을 고치고 지우는 자리다. 지우기는 두
+  번 눌러야 한다 — 한 번은 묻고, 4초가 지나면 물음이 스스로 닫힌다.
+- **새로 만들면 그 사람에게 바로 넘어간다.** 부모가 사람을 만드는 때는 아이에게 기기를
+  건네기 직전이다. 얼굴은 아직 아무도 쓰지 않은 것을 먼저 권한다.
+- **`body` 의 `touch-action: none` 을 화면(.home/.practice)으로 옮겼다.** 이 값은 자손 전부에
+  겹쳐 들어가므로, 시트가 화면보다 길어지는 폰에서 손가락으로 시트를 밀어 내릴 수 없었다
+  ('닫기'가 손에 닿지 않았다). 바탕이 딸려 움직이는 것은 `overflow:hidden` 과
+  `overscroll-behavior: none` 이 막는다.
+- **곁다리로 고친 것**: 시트의 입력칸이 제 기본 폭(459px)보다 좁아지지 않아 곁의 버튼이
+  시트 밖으로 잘려 나갔다(단어 넣기도 같은 증상이었다). `min-width: 0` 한 줄이다.
 
 ### Known gaps
 - Screen-reader coverage is partial: home cards and the main controls have labels, but the
